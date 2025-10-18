@@ -269,6 +269,21 @@ class EagleVerifyInputV2Mixin:
         bs = len(batch.req_pool_indices)
         batch.input_ids = self.draft_token
         device = batch.input_ids.device
+        page_size = get_global_server_args().page_size
+        seq_lens = batch.seq_lens
+        if (
+            page_size > 1
+            and self.allocate_lens is not None
+            and self.allocate_lens.numel() == seq_lens.numel()
+        ):
+            alloc_lens = self.allocate_lens.to(seq_lens.device, non_blocking=True)
+            start_offset = torch.maximum(
+                alloc_lens - self.draft_token_num, torch.zeros_like(alloc_lens)
+            )
+            end_offset = alloc_lens
+        else:
+            start_offset = seq_lens
+            end_offset = seq_lens + self.draft_token_num
         batch.out_cache_loc = torch.empty(
             (bs * self.draft_token_num,),
             dtype=torch.int64,
@@ -278,8 +293,8 @@ class EagleVerifyInputV2Mixin:
         assign_extend_cache_locs[(bs,)](
             batch.req_pool_indices,
             req_to_token_pool.req_to_token,
-            batch.seq_lens,
-            batch.seq_lens + self.draft_token_num,
+            start_offset,
+            end_offset,
             batch.out_cache_loc,
             req_to_token_pool.req_to_token.shape[1],
             next_power_of_2(bs),

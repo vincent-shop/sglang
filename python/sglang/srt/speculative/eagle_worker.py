@@ -540,6 +540,7 @@ class EAGLEWorker(TpModelWorker):
             capture_hidden_mode=CaptureHiddenMode.FULL,
             seq_lens_sum=forward_batch.seq_lens_sum,
             seq_lens_cpu=forward_batch.seq_lens_cpu,
+            allocate_lens=spec_info.allocate_lens,
         )
 
     def draft_forward(self, forward_batch: ForwardBatch):
@@ -940,4 +941,3 @@ class EAGLEWorker(TpModelWorker):
         probs = torch.softmax(logits_output.next_token_logits, dim=-1)
         draft_input.topk_p, draft_input.topk_index = fast_topk(probs, self.topk, dim=-1)
         draft_input.hidden_states = logits_output.hidden_states
-

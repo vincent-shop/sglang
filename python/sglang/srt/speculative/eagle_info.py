@@ -67,6 +67,7 @@ class EagleVerifyInput(SpecInput, EagleVerifyInputV2Mixin):
     capture_hidden_mode: CaptureHiddenMode
     seq_lens_sum: int
     seq_lens_cpu: torch.Tensor
+    allocate_lens: Optional[torch.Tensor] = None
     grammar: BaseGrammarObject = None
 
     def __post_init__(self):
@@ -97,6 +98,7 @@ class EagleVerifyInput(SpecInput, EagleVerifyInputV2Mixin):
             capture_hidden_mode=CaptureHiddenMode.FULL,
             seq_lens_sum=0,
             seq_lens_cpu=torch.empty((0,), dtype=torch.int32),
+            allocate_lens=torch.empty((0,), dtype=torch.int64),
         )
 
     def prepare_for_verify(self, batch: ScheduleBatch, page_size: int):

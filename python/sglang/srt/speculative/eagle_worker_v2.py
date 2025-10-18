@@ -577,6 +577,7 @@ class EAGLEWorkerV2(BaseSpecWorker):
 
         # Parse args
         verify_input: EagleVerifyInput = batch.spec_info
+        verify_input.allocate_lens = cur_allocate_lens
         bs = len(batch.seq_lens)
 
         # Batch 1: Target verify
