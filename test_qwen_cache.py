@@ -61,15 +61,19 @@ async def main():
     
     print("Test 1: Single BLACK image (no cache expected)")
     await single_image_request(black_image, "black image")
+    await asyncio.sleep(0.5)
     
     print("\nTest 2: BLACK + WHITE images (black should cache)")
     await two_images_request(black_image, white_image)
+    await asyncio.sleep(0.5)
     
     print("\nTest 3: Single WHITE image (white should cache)")
     await single_image_request(white_image, "white image")
+    await asyncio.sleep(0.5)
     
     print("\nTest 4: BLACK + RED images (black should cache)")
     await two_images_request(black_image, red_image)
+    await asyncio.sleep(0.5)
     
     print("\nTest 5: WHITE + RED images (both should cache)")
     await two_images_request(white_image, red_image)
