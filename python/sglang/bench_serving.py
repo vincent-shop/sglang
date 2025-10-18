@@ -779,7 +779,9 @@ def get_dataset(args, tokenizer, model_id=None):
             num_requests=args.num_prompts,
             processor=processor,
             fixed_output_len=args.random_output_len,
-            random_sample=True,
+            random_sample=not args.mmmu_sequential,
+            reuse_images=args.mmmu_reuse_images,
+            reuse_ratio=args.mmmu_reuse_ratio,
         )
     elif args.dataset_name == "mooncake":
         # For mooncake, we don't generate the prompts here.
@@ -1008,6 +1010,8 @@ def sample_mmmu_requests(
     processor: AutoProcessor | AutoTokenizer,
     fixed_output_len: Optional[int] = None,
     random_sample: bool = True,
+    reuse_images: bool = False,
+    reuse_ratio: float = 0.5,
 ) -> List[DatasetRow]:
     """
     Sample requests from the MMMU dataset using HuggingFace datasets.
@@ -1016,6 +1020,8 @@ def sample_mmmu_requests(
         num_requests: Number of requests to sample.
         fixed_output_len: If provided, use this fixed output length for all requests.
         random_sample: Whether to randomly sample or take the first N.
+        reuse_images: If True, reuse a subset of images across multiple requests to test caching.
+        reuse_ratio: Ratio of unique images to total requests when reuse_images=True.
 
     Returns:
         List of tuples (prompt, prompt_token_len, output_token_len).
@@ -1040,14 +1046,57 @@ def sample_mmmu_requests(
         print(f"Failed to load MMMU Math dataset: {e}")
         raise ValueError(f"Failed to load MMMU dataset: {e}")
 
-    # Sample from the dataset
+    if reuse_images:
+        num_unique_images = max(1, int(num_requests * reuse_ratio))
+        print(f"Reuse mode: Using {num_unique_images} unique images for {num_requests} requests")
+        
+        if random_sample:
+            indices = random.sample(range(len(mmmu_dataset)), num_unique_images)
+        else:
+            indices = list(range(min(num_unique_images, len(mmmu_dataset))))
+        
+        sample_dataset = mmmu_dataset.select(indices)
+        
+        cached_examples = []
+        for example in sample_dataset:
+            image = example.get("image_1")
+            if image is not None and hasattr(image, "save"):
+                if image.mode == "RGBA":
+                    image = image.convert("RGB")
+                buffered = io.BytesIO()
+                image.save(buffered, format="PNG")
+                img_str = pybase64.b64encode(buffered.getvalue()).decode("utf-8")
+                image_data = f"data:image/png;base64,{img_str}"
+                cached_examples.append({
+                    "image": image,
+                    "image_data": image_data,
+                    "question": example.get("question"),
+                })
+        
+        print(f"Cached {len(cached_examples)} unique image examples")
+        
+        filtered_dataset = []
+        for i in range(num_requests):
+            try:
+                example = random.choice(cached_examples)
+                question = example["question"]
+                text_prompt = f"Question: {question}\n\nAnswer: "
+                output_len = fixed_output_len if fixed_output_len is not None else 256
+                data_row = create_mm_data_row(
+                    text_prompt, [example["image"]], [example["image_data"]], output_len, processor
+                )
+                filtered_dataset.append(data_row)
+            except Exception as e:
+                print(f"Error processing example {i}: {e}")
+        
+        print(f"\nCreated {len(filtered_dataset)} MMMU prompts with reused images")
+        return filtered_dataset
+    
     if len(mmmu_dataset) > num_requests:
         if random_sample:
-            # Random sample
             indices = random.sample(range(len(mmmu_dataset)), num_requests)
             sample_dataset = mmmu_dataset.select(indices)
         else:
-            # Take first N
             sample_dataset = mmmu_dataset.select(
                 range(min(num_requests, len(mmmu_dataset)))
             )
@@ -1057,21 +1106,17 @@ def sample_mmmu_requests(
 
     print(f"Selected {len(sample_dataset)} examples for benchmarking")
 
-    # Create prompts
     filtered_dataset = []
 
     for i, example in enumerate(sample_dataset):
         try:
-            # Extract image_1
             image = example.get("image_1")
 
             if image is not None:
                 if hasattr(image, "save"):
-                    # Convert RGBA images to RGB before encoding
                     if image.mode == "RGBA":
                         image = image.convert("RGB")
 
-                    # Encode image to base64 (save as PNG to support palette/alpha modes)
                     buffered = io.BytesIO()
                     image.save(buffered, format="PNG")
                     img_str = pybase64.b64encode(buffered.getvalue()).decode("utf-8")
@@ -1079,10 +1124,8 @@ def sample_mmmu_requests(
                 else:
                     continue
 
-                # Extract the question
                 question = example.get("question")
 
-                # Construct the prompt
                 text_prompt = f"Question: {question}\n\nAnswer: "
                 output_len = fixed_output_len if fixed_output_len is not None else 256
                 data_row = create_mm_data_row(
@@ -2595,5 +2638,26 @@ if __name__ == "__main__":
         ],
         help="Underlying workload for the mooncake dataset.",
     )
+    
+    mmmu_group = parser.add_argument_group("MMMU dataset arguments")
+    mmmu_group.add_argument(
+        "--mmmu-reuse-images",
+        action="store_true",
+        help="Reuse a subset of images across multiple requests to test per-item image caching effectiveness.",
+    )
+    mmmu_group.add_argument(
+        "--mmmu-reuse-ratio",
+        type=float,
+        default=0.2,
+        help="Ratio of unique images to total requests when --mmmu-reuse-images is enabled. "
+        "For example, 0.2 means 20%% unique images will be reused across all requests. "
+        "Lower values = more cache hits.",
+    )
+    mmmu_group.add_argument(
+        "--mmmu-sequential",
+        action="store_true",
+        help="Use sequential sampling instead of random sampling for MMMU dataset.",
+    )
+    
     args = parser.parse_args()
     run_benchmark(args)
