@@ -1,0 +1,3936 @@
+{
+  "2024-01-08": [
+    {
+      "file": "python/sglang/lang/backend/openai.py",
+      "line": 353,
+      "text": "# TODO:",
+      "type": "TODO"
+    }
+  ],
+  "2024-02-01": [
+    {
+      "file": "python/sglang/srt/models/yivl.py",
+      "line": 69,
+      "text": "# TODO: support TP?",
+      "type": "TODO"
+    }
+  ],
+  "2024-05-13": [
+    {
+      "file": "python/sglang/srt/models/llavavid.py",
+      "line": 263,
+      "text": "# FIXME: why projector weights read two times?",
+      "type": "FIXME"
+    }
+  ],
+  "2024-05-21": [
+    {
+      "file": "python/sglang/srt/models/mixtral_quant.py",
+      "line": 87,
+      "text": "# TODO: Use vllm's SiluAndMul",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/lang/interpreter.py",
+      "line": 376,
+      "text": "# TODO(ying): handle API speculative execution",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/lang/backend/openai.py",
+      "line": 101,
+      "text": "# TODO(ying): This does not support multi-threading (run_batch)",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/lang/backend/openai.py",
+      "line": 257,
+      "text": "# TODO(ying): throw errors or warnings",
+      "type": "TODO"
+    }
+  ],
+  "2024-07-21": [
+    {
+      "file": "python/sglang/srt/models/gpt_bigcode.py",
+      "line": 295,
+      "text": "# TODO (@robertgshaw2-neuralmagic): move to fp8 linear method",
+      "type": "TODO"
+    }
+  ],
+  "2024-07-24": [
+    {
+      "file": "python/sglang/srt/managers/schedule_batch.py",
+      "line": 1385,
+      "text": "# TODO(lsyin): improve retraction policy for radix cache",
+      "type": "TODO"
+    }
+  ],
+  "2024-09-15": [
+    {
+      "file": "test/srt/openai_server/basic/test_openai_server.py",
+      "line": 90,
+      "text": "# FIXME: Sometimes, some top_logprobs are missing in the return value. The reason is that some output id maps to the same output token and duplicate in the map",
+      "type": "FIXME"
+    },
+    {
+      "file": "test/srt/openai_server/basic/test_openai_server.py",
+      "line": 162,
+      "text": "# FIXME: Sometimes, some top_logprobs are missing in the return value. The reason is that some output id maps to the same output token and duplicate in the map",
+      "type": "FIXME"
+    }
+  ],
+  "2024-09-30": [
+    {
+      "file": "python/sglang/srt/layers/attention/triton_backend.py",
+      "line": 791,
+      "text": "# TODO: reuse the buffer across layers",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/triton_backend.py",
+      "line": 858,
+      "text": "# TODO: reuse the buffer across layers",
+      "type": "TODO"
+    }
+  ],
+  "2024-10-14": [
+    {
+      "file": "python/sglang/srt/layers/attention/double_sparsity_backend.py",
+      "line": 42,
+      "text": "# TODO: Change the hard-coded block_seq_num",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/double_sparsity_backend.py",
+      "line": 122,
+      "text": "# TODO: reuse the buffer across layers",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/double_sparsity_backend.py",
+      "line": 180,
+      "text": "# TODO: reuse the buffer across layers",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/double_sparsity_backend.py",
+      "line": 186,
+      "text": "# TODO: Add min seqlen",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/double_sparsity_backend.py",
+      "line": 230,
+      "text": "# TODO(Andy): indexing with torch.gather or torch.index_select or customized kernel",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/triton_ops/double_sparsity_attention.py",
+      "line": 718,
+      "text": "# TODO(Andy): Tune BLOCK_SEQ & BLOCK_D",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/triton_ops/double_sparsity_attention.py",
+      "line": 758,
+      "text": "# TODO(Andy): Change a faster topk implementation",
+      "type": "TODO"
+    }
+  ],
+  "2024-10-21": [
+    {
+      "file": "python/sglang/srt/models/mllama.py",
+      "line": 682,
+      "text": "# TODO: force LlamaDecoderLayer to config.attention_bias=False",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/mllama.py",
+      "line": 975,
+      "text": "# TODO: support multi-image by this mask",
+      "type": "TODO"
+    }
+  ],
+  "2024-11-03": [
+    {
+      "file": "python/sglang/srt/configs/model_config.py",
+      "line": 303,
+      "text": "# FIXME: temporary special judge for MLA architecture",
+      "type": "FIXME"
+    }
+  ],
+  "2024-11-13": [
+    {
+      "file": "python/sglang/srt/constrained/outlines_jump_forward.py",
+      "line": 124,
+      "text": "# FIXME: This logic is due to the leading \\x00",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/constrained/outlines_backend.py",
+      "line": 125,
+      "text": "# FIXME: tmp fix for chatglm2 & chatglm3 (pad_token_id=0)",
+      "type": "FIXME"
+    }
+  ],
+  "2024-11-18": [
+    {
+      "file": "python/sglang/srt/models/phi3_small.py",
+      "line": 222,
+      "text": "# TODO: allow 3D QK for rotary forward",
+      "type": "TODO"
+    }
+  ],
+  "2024-11-22": [
+    {
+      "file": "scripts/playground/router/tree.py",
+      "line": 240,
+      "text": "# TODO: Implementation needed",
+      "type": "TODO"
+    }
+  ],
+  "2024-11-24": [
+    {
+      "file": "python/sglang/srt/layers/moe/fused_moe_triton/layer.py",
+      "line": 556,
+      "text": "# TODO (mgoin): check self.quant_method.quant_config.quant_format",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/moe/fused_moe_triton/layer.py",
+      "line": 669,
+      "text": "# TODO @dsikka: once hardened, refactor to use vLLM Parameters",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/managers/scheduler.py",
+      "line": 2109,
+      "text": "# TODO (lianmin): support return_logprob + mixed chunked prefill",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/managers/schedule_batch.py",
+      "line": 1349,
+      "text": "# TODO (lianmin): Revisit this. It should be seq_len - 1",
+      "type": "TODO"
+    }
+  ],
+  "2024-11-27": [
+    {
+      "file": "3rdparty/amd/tuning/benchmark_moe_rocm.py",
+      "line": 35,
+      "text": "# TODO (zhanglx): figure out the boundary between large and small gemms",
+      "type": "TODO"
+    },
+    {
+      "file": "3rdparty/amd/tuning/benchmark_moe_rocm.py",
+      "line": 81,
+      "text": "# TODO (zhanglx): This does not consider the LDS usage in the epilogue",
+      "type": "TODO"
+    }
+  ],
+  "2024-11-30": [
+    {
+      "file": "python/sglang/srt/model_executor/model_runner.py",
+      "line": 1266,
+      "text": "# TODO: (chenyang) Add support for Qwen models.",
+      "type": "TODO"
+    }
+  ],
+  "2024-12-01": [
+    {
+      "file": "python/sglang/srt/layers/attention/torch_native_backend.py",
+      "line": 70,
+      "text": "# TODO: this loop process a sequence per iter, this is inefficient.",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/torch_native_backend.py",
+      "line": 148,
+      "text": "# TODO: this loop process a sequence per iter, this is inefficient.",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/distributed/device_communicators/hpu_communicator.py",
+      "line": 24,
+      "text": "# FIXME(kzawora): this is a workaround for a bug in Habana PT bridge",
+      "type": "FIXME"
+    }
+  ],
+  "2024-12-02": [
+    {
+      "file": "python/sglang/srt/model_loader/loader.py",
+      "line": 820,
+      "text": "# TODO: support un-sharded checkpoints too",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/model_loader/utils.py",
+      "line": 87,
+      "text": "# FIXME(woosuk): This is a temporary hack.",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/model_loader/weight_utils.py",
+      "line": 135,
+      "text": "# TODO(woosuk): Move this to other place.",
+      "type": "TODO"
+    }
+  ],
+  "2024-12-08": [
+    {
+      "file": "python/sglang/srt/managers/detokenizer_manager.py",
+      "line": 132,
+      "text": "# TODO(lmzheng): handle the case where multiple stop strs are hit",
+      "type": "TODO"
+    }
+  ],
+  "2024-12-22": [
+    {
+      "file": "benchmark/kernels/scheduler_batch/benchmark_write_req_to_token_pool_triton.py",
+      "line": 26,
+      "text": "# TODO: optimize this?",
+      "type": "TODO"
+    }
+  ],
+  "2025-01-03": [
+    {
+      "file": "scripts/playground/reference_hf.py",
+      "line": 108,
+      "text": "# TODO(gaocegege): The output contains numerous <|image_pad|> tokens,",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/triton_ops/decode_attention.py",
+      "line": 444,
+      "text": "# [TODO] work around shmem limit on MI3xx",
+      "type": "TODO"
+    }
+  ],
+  "2025-01-07": [
+    {
+      "file": "python/sglang/srt/utils/common.py",
+      "line": 2077,
+      "text": "# todo: replace with a more organized instrumentation",
+      "type": "TODO"
+    }
+  ],
+  "2025-01-11": [
+    {
+      "file": "python/sglang/srt/managers/cache_controller.py",
+      "line": 155,
+      "text": "# todo: adjust the buffer size based on throughput profile of the system",
+      "type": "TODO"
+    }
+  ],
+  "2025-01-13": [
+    {
+      "file": "python/sglang/srt/layers/linear.py",
+      "line": 723,
+      "text": "# TODO: @dsikka - move to parameter.py",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/linear.py",
+      "line": 949,
+      "text": "# TODO: @dsikka - move to parameter.py",
+      "type": "TODO"
+    }
+  ],
+  "2025-01-17": [
+    {
+      "file": "python/sglang/srt/utils/common.py",
+      "line": 454,
+      "text": "# TODO: rename the variables in the current function to be not GPU specific",
+      "type": "TODO"
+    }
+  ],
+  "2025-01-18": [
+    {
+      "file": "python/sglang/srt/models/minicpmv.py",
+      "line": 363,
+      "text": "# TODO: Remove this after the HF repos are updated",
+      "type": "TODO"
+    },
+    {
+      "file": "benchmark/hicache/bench_multiturn.py",
+      "line": 271,
+      "text": "# todo, varying thinking time of clients",
+      "type": "TODO"
+    }
+  ],
+  "2025-01-20": [
+    {
+      "file": "python/sglang/lang/backend/runtime_endpoint.py",
+      "line": 405,
+      "text": "# TODO: remove this pipe_writer mechanism and use `/health_generate` instead.",
+      "type": "TODO"
+    }
+  ],
+  "2025-01-22": [
+    {
+      "file": "python/sglang/srt/model_loader/weight_utils.py",
+      "line": 1023,
+      "text": "# TODO: Consider pulling this and its validation methods out into its",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/model_loader/weight_utils.py",
+      "line": 1073,
+      "text": "# TODO: Generalize and extend with more fields",
+      "type": "TODO"
+    }
+  ],
+  "2025-01-27": [
+    {
+      "file": "benchmark/kernels/fused_moe_triton/tuning_fused_moe_triton.py",
+      "line": 219,
+      "text": "# TODO(woosuk): Increase the search space and use a performance model to",
+      "type": "TODO"
+    }
+  ],
+  "2025-01-28": [
+    {
+      "file": "test/srt/test_vlm_accuracy.py",
+      "line": 137,
+      "text": "# FIXME: the formal arguments may differ",
+      "type": "FIXME"
+    }
+  ],
+  "2025-02-02": [
+    {
+      "file": "python/sglang/srt/layers/attention/triton_ops/decode_attention.py",
+      "line": 197,
+      "text": "# [TODO] work around SGPR limit on MI3xx",
+      "type": "TODO"
+    }
+  ],
+  "2025-02-20": [
+    {
+      "file": "python/sglang/srt/lora/lora_config.py",
+      "line": 30,
+      "text": "# TODO: Support more modules",
+      "type": "TODO"
+    }
+  ],
+  "2025-02-22": [
+    {
+      "file": "python/sglang/srt/managers/detokenizer_manager.py",
+      "line": 180,
+      "text": "# TODO(lmzheng): handle skip_special_tokens/spaces_between_special_tokens per request",
+      "type": "TODO"
+    }
+  ],
+  "2025-02-24": [
+    {
+      "file": "python/sglang/srt/mem_cache/hiradix_cache.py",
+      "line": 129,
+      "text": "# todo: dynamically adjust the threshold",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/mem_cache/hiradix_cache.py",
+      "line": 426,
+      "text": "# todo: more loading policies",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/managers/tokenizer_manager.py",
+      "line": 982,
+      "text": "# FIXME: When using batch and parallel_sample_num together, the perf is not optimal.",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/managers/tokenizer_manager.py",
+      "line": 1531,
+      "text": "# TODO: The current implementation only batches the detokenization for top-k tokens per single position.",
+      "type": "TODO"
+    }
+  ],
+  "2025-02-25": [
+    {
+      "file": "python/sglang/srt/layers/attention/triton_ops/rocm_mla_decode_rope.py",
+      "line": 309,
+      "text": "# TODO rope offset",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/triton_ops/rocm_mla_decode_rope.py",
+      "line": 335,
+      "text": "# # [TODO] work around shmem limit on MI3xx",
+      "type": "TODO"
+    }
+  ],
+  "2025-02-28": [
+    {
+      "file": "test/srt/rl/test_verl_engine_2_gpu.py",
+      "line": 40,
+      "text": "# TODO maybe we should add more other models? should we keep it in sync with test_generation_models.py?",
+      "type": "TODO"
+    },
+    {
+      "file": "test/srt/rl/test_verl_engine_4_gpu.py",
+      "line": 40,
+      "text": "# TODO maybe we should add more other models? should we keep it in sync with test_generation_models.py?",
+      "type": "TODO"
+    }
+  ],
+  "2025-03-03": [
+    {
+      "file": "python/sglang/srt/layers/linear.py",
+      "line": 412,
+      "text": "# FIXME: This branch is needed to load deepseek v3 awq.",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/sampling/sampling_batch_info.py",
+      "line": 190,
+      "text": "# TODO(lianmin): Maybe we can reuse the existing mask?",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/managers/schedule_batch.py",
+      "line": 1388,
+      "text": "# TODO(sang): Clean up finish path and support better retract",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/managers/schedule_batch.py",
+      "line": 1506,
+      "text": "# TODO: this can be slow, optimize this.",
+      "type": "TODO"
+    }
+  ],
+  "2025-03-04": [
+    {
+      "file": "python/sglang/srt/layers/activation.py",
+      "line": 143,
+      "text": "# TODO: Implement the CUDA kernel for NewGELU in sgl-kernel",
+      "type": "TODO"
+    }
+  ],
+  "2025-03-05": [
+    {
+      "file": "test/srt/test_skip_tokenizer_init.py",
+      "line": 241,
+      "text": "# TODO mick",
+      "type": "TODO"
+    }
+  ],
+  "2025-03-06": [
+    {
+      "file": "benchmark/hicache/data_processing.py",
+      "line": 219,
+      "text": "# TODO: Add shared prefix support for loogle",
+      "type": "TODO"
+    },
+    {
+      "file": "benchmark/hicache/data_processing.py",
+      "line": 291,
+      "text": "# TODO: Check for multiturn",
+      "type": "TODO"
+    },
+    {
+      "file": "benchmark/hicache/data_processing.py",
+      "line": 300,
+      "text": "# TODO: prompt len can get from server side",
+      "type": "TODO"
+    },
+    {
+      "file": "benchmark/hicache/bench_serving.py",
+      "line": 750,
+      "text": "# TODO: Support multiturn for random",
+      "type": "TODO"
+    }
+  ],
+  "2025-03-09": [
+    {
+      "file": "python/sglang/srt/layers/attention/flashinfer_mla_backend.py",
+      "line": 842,
+      "text": "# TODO: Support topk > 1 with custom mask",
+      "type": "TODO"
+    }
+  ],
+  "2025-03-11": [
+    {
+      "file": "python/sglang/srt/multimodal/processors/base_processor.py",
+      "line": 161,
+      "text": "# FIXME: not accurate, model and image specific",
+      "type": "FIXME"
+    }
+  ],
+  "2025-03-12": [
+    {
+      "file": "python/sglang/srt/models/deepseek_janus_pro.py",
+      "line": 1403,
+      "text": "# FIXME interpolate",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/configs/janus_pro.py",
+      "line": 324,
+      "text": "# FIXME: had to place Official Processor here, since image_processor module would not be imported in all threads,",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/configs/janus_pro.py",
+      "line": 558,
+      "text": ").long()  # FIXME",
+      "type": "FIXME"
+    }
+  ],
+  "2025-03-13": [
+    {
+      "file": "python/sglang/srt/layers/moe/router.py",
+      "line": 44,
+      "text": "# todo: tl.dot?",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/utils/common.py",
+      "line": 1806,
+      "text": "# TODO(HandH1998): `get_device_capability` is not supported by `torch.hpu` for now.",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/mem_cache/allocator.py",
+      "line": 418,
+      "text": "TODO: fuse last_loc into the kernel.",
+      "type": "TODO"
+    }
+  ],
+  "2025-03-14": [
+    {
+      "file": "python/sglang/srt/connector/redis.py",
+      "line": 25,
+      "text": "# TODO: more serde options",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/model_loader/loader.py",
+      "line": 1579,
+      "text": "# TODO @DellCurry: move to s3 connector only",
+      "type": "TODO"
+    }
+  ],
+  "2025-03-17": [
+    {
+      "file": "python/sglang/srt/models/gemma3_causal.py",
+      "line": 403,
+      "text": ")  # TODO joao: may break with compilation",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/deepseek_vl2.py",
+      "line": 202,
+      "text": "# TODO: refactor vision model through timm wrapper from transformers",
+      "type": "TODO"
+    }
+  ],
+  "2025-03-18": [
+    {
+      "file": "python/sglang/srt/model_executor/model_runner.py",
+      "line": 477,
+      "text": "# auxiliary hidden capture mode. TODO: expose this to server args?",
+      "type": "TODO"
+    }
+  ],
+  "2025-03-20": [
+    {
+      "file": "python/sglang/srt/layers/attention/triton_backend.py",
+      "line": 355,
+      "text": "# TODO(FIXME): This will trigger an invalid Eagle tree when using",
+      "type": "TODO"
+    }
+  ],
+  "2025-03-25": [
+    {
+      "file": "python/sglang/srt/entrypoints/http_server.py",
+      "line": 1434,
+      "text": "# TODO Workaround the bug that embedding errors for list of size 1",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/entrypoints/http_server.py",
+      "line": 1439,
+      "text": "# TODO Workaround the bug that embedding errors for list of size 1",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/minicpmo.py",
+      "line": 722,
+      "text": "# TODO: del past_key_values_for_prefill_updated recursively",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/minicpmo.py",
+      "line": 723,
+      "text": "# TODO: del outputs_prefill recursively",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/managers/multimodal_processor.py",
+      "line": 1,
+      "text": "# TODO: also move pad_input_ids into this module",
+      "type": "TODO"
+    }
+  ],
+  "2025-03-26": [
+    {
+      "file": "python/sglang/srt/layers/quantization/compressed_tensors/compressed_tensors.py",
+      "line": 126,
+      "text": "# TODO (@robertgshaw2): support module names",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/quantization/compressed_tensors/compressed_tensors.py",
+      "line": 457,
+      "text": "# TODO (@robertgshaw): add compressed-tensors as dep",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/quantization/compressed_tensors/compressed_tensors_moe.py",
+      "line": 83,
+      "text": "# TODO: @dsikka: refactor this to use schemes as other kernels",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/quantization/compressed_tensors/compressed_tensors_moe.py",
+      "line": 361,
+      "text": "# TODO: @dsikka: refactor this to use schemes as other kernels",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/quantization/compressed_tensors/schemes/compressed_tensors_w8a8_fp8.py",
+      "line": 130,
+      "text": "# TODO: update create_xxx_parameter functions to return",
+      "type": "TODO"
+    }
+  ],
+  "2025-03-27": [
+    {
+      "file": "python/sglang/srt/configs/deepseekvl2.py",
+      "line": 90,
+      "text": "# FIXME: add version check for gguf",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/model_loader/loader.py",
+      "line": 1405,
+      "text": "# FIXME: add version check for gguf",
+      "type": "FIXME"
+    }
+  ],
+  "2025-03-28": [
+    {
+      "file": "python/sglang/srt/distributed/parallel_state.py",
+      "line": 643,
+      "text": "# TODO(ch-wan): support other backends",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/distributed/parallel_state.py",
+      "line": 717,
+      "text": "# TODO(ch-wan): support other backends",
+      "type": "TODO"
+    }
+  ],
+  "2025-03-31": [
+    {
+      "file": "python/sglang/srt/models/deepseek_vl2.py",
+      "line": 268,
+      "text": "# TODO: can it be batched ?",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/managers/schedule_batch.py",
+      "line": 265,
+      "text": "# TODO",
+      "type": "TODO"
+    }
+  ],
+  "2025-04-01": [
+    {
+      "file": "python/sglang/srt/layers/moe/token_dispatcher/deepep.py",
+      "line": 397,
+      "text": "# FIXME: `handle` should be transmitted with tokens from dispatch to combine.",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/models/deepseek_v2.py",
+      "line": 627,
+      "text": "# TODO: we will support tp < ep in the future",
+      "type": "TODO"
+    }
+  ],
+  "2025-04-03": [
+    {
+      "file": "sgl-kernel/include/sgl_flash_kernel_ops.h",
+      "line": 65,
+      "text": "// TODO: check if we need max_seqlen_k",
+      "type": "TODO"
+    }
+  ],
+  "2025-04-07": [
+    {
+      "file": "python/sglang/srt/layers/attention/flashattention_backend.py",
+      "line": 189,
+      "text": "#   (TODO: max a utility to share this code with _prepare_inputs)",
+      "type": "TODO"
+    }
+  ],
+  "2025-04-08": [
+    {
+      "file": "sgl-kernel/csrc/cpu/moe.cpp",
+      "line": 22,
+      "text": "//  TODO:",
+      "type": "TODO"
+    },
+    {
+      "file": "sgl-kernel/csrc/cpu/moe.cpp",
+      "line": 216,
+      "text": "// TODO: do we need to vecterize this ?",
+      "type": "TODO"
+    },
+    {
+      "file": "sgl-kernel/csrc/cpu/moe.cpp",
+      "line": 577,
+      "text": "TORCH_CHECK(N % BLOCK_N == 0, \"Fixme when N is not multiples of \", BLOCK_N);",
+      "type": "FIXME"
+    },
+    {
+      "file": "sgl-kernel/csrc/cpu/moe.cpp",
+      "line": 763,
+      "text": "TORCH_CHECK(N % BLOCK_N == 0, \"Fixme when N is not multiples of \", BLOCK_N);",
+      "type": "FIXME"
+    },
+    {
+      "file": "sgl-kernel/csrc/cpu/norm.cpp",
+      "line": 289,
+      "text": "// TODO: implement a singleton for context",
+      "type": "TODO"
+    },
+    {
+      "file": "sgl-kernel/csrc/cpu/decode.cpp",
+      "line": 7,
+      "text": "// [NOTE] TODO list for this kernel:",
+      "type": "TODO"
+    },
+    {
+      "file": "sgl-kernel/csrc/cpu/decode.cpp",
+      "line": 946,
+      "text": "// TODO: `tanh` from torch uses sleef u10, going to be slow",
+      "type": "TODO"
+    },
+    {
+      "file": "sgl-kernel/csrc/cpu/extend.cpp",
+      "line": 11,
+      "text": "//   4. TODO: vectorize `pack_vnni` and `pack_vnni2`",
+      "type": "TODO"
+    },
+    {
+      "file": "sgl-kernel/csrc/cpu/extend.cpp",
+      "line": 374,
+      "text": "// TODO: `tanh` from torch uses sleef u10, going to be slow",
+      "type": "TODO"
+    },
+    {
+      "file": "sgl-kernel/csrc/cpu/extend.cpp",
+      "line": 485,
+      "text": "// TODO: `tanh` from torch uses sleef u10, going to be slow",
+      "type": "TODO"
+    },
+    {
+      "file": "sgl-kernel/csrc/cpu/moe_int8.cpp",
+      "line": 624,
+      "text": "TORCH_CHECK(N % BLOCK_N == 0, \"Fixme when N is not multiples of \", BLOCK_N);",
+      "type": "FIXME"
+    },
+    {
+      "file": "sgl-kernel/csrc/cpu/moe_int8.cpp",
+      "line": 880,
+      "text": "TORCH_CHECK(N % BLOCK_N == 0, \"Fixme when N is not multiples of \", BLOCK_N);",
+      "type": "FIXME"
+    }
+  ],
+  "2025-04-11": [
+    {
+      "file": "python/sglang/srt/models/llama4.py",
+      "line": 333,
+      "text": "# TODO there are still 2 redundant direct_copy_kernel_cuda for this `reshape` and (in attn backend) q.contiguous(), maybe we can fuse them later",
+      "type": "TODO"
+    }
+  ],
+  "2025-04-12": [
+    {
+      "file": "sgl-kernel/python/sgl_kernel/attention.py",
+      "line": 99,
+      "text": "# TODO(kaixih@nvidia): support fp8",
+      "type": "TODO"
+    }
+  ],
+  "2025-04-14": [
+    {
+      "file": "python/sglang/srt/disaggregation/prefill.py",
+      "line": 545,
+      "text": "# FIXME: clean up req's data in transfer engine",
+      "type": "FIXME"
+    }
+  ],
+  "2025-04-15": [
+    {
+      "file": "sgl-kernel/python/sgl_kernel/attention.py",
+      "line": 41,
+      "text": "# TODO(DefTruth): Currently, the custom merge_attn_states kernel",
+      "type": "TODO"
+    }
+  ],
+  "2025-04-16": [
+    {
+      "file": "python/sglang/srt/model_executor/forward_batch_info.py",
+      "line": 606,
+      "text": "# TODO: Should be changed to a better value, maybe passed through server args",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/model_executor/forward_batch_info.py",
+      "line": 823,
+      "text": "# TODO: Implement a better way to allocate chunk lengths that uses memory spaces more efficiently.",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/deepseek_v2.py",
+      "line": 1189,
+      "text": "# TODO: Design a finer way to determine the threshold",
+      "type": "TODO"
+    }
+  ],
+  "2025-04-19": [
+    {
+      "file": "python/sglang/srt/layers/quantization/fp8_utils.py",
+      "line": 729,
+      "text": "# TODO(kkhuang): temporarily enforce per-tensor activation scaling if weight is per-tensor scaling",
+      "type": "TODO"
+    }
+  ],
+  "2025-04-21": [
+    {
+      "file": "python/sglang/srt/layers/attention/flashattention_backend.py",
+      "line": 277,
+      "text": "# TODO(hebiao064): remove this once we have a better way to handle the merge_state_v2 torch.compile issue",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/flashattention_backend.py",
+      "line": 458,
+      "text": "# TODO: we need to test this part for llama 4 eagle case",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/utils/common.py",
+      "line": 2504,
+      "text": "# TODO(hebiao064): Accelerate FA3 Spec Decode with topk > 1.",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/utils/common.py",
+      "line": 2505,
+      "text": "# TODO(hebiao064): Improve the acc rate for FA3 Spec Decode with topk == 1 and page_size > 1.",
+      "type": "TODO"
+    }
+  ],
+  "2025-04-26": [
+    {
+      "file": "python/sglang/srt/model_executor/forward_batch_info.py",
+      "line": 460,
+      "text": "# TODO: is it expensive?",
+      "type": "TODO"
+    }
+  ],
+  "2025-04-27": [
+    {
+      "file": "python/sglang/srt/constrained/llguidance_backend.py",
+      "line": 168,
+      "text": "trigger=structural_tag[\"triggers\"][0],  # TODO?",
+      "type": "TODO"
+    }
+  ],
+  "2025-04-30": [
+    {
+      "file": "python/sglang/srt/models/kimi_vl_moonvit.py",
+      "line": 287,
+      "text": "dim (int): usually the multi-head attention dimension, should be divisible by 4 (TODO: relax this constraint if needed)",
+      "type": "TODO"
+    }
+  ],
+  "2025-05-01": [
+    {
+      "file": "python/sglang/srt/model_executor/model_runner.py",
+      "line": 2062,
+      "text": "# FIXME: add pp_proxy_tensors arg to all models",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/models/llama.py",
+      "line": 332,
+      "text": "# FIXME(@ying): reduce the number of proxy tensors by not fusing layer norms",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/speculative/eagle_worker.py",
+      "line": 125,
+      "text": "pp_rank=0,  # FIXME",
+      "type": "FIXME"
+    }
+  ],
+  "2025-05-02": [
+    {
+      "file": "python/sglang/srt/multimodal/processors/internvl.py",
+      "line": 210,
+      "text": "# TODO: video input",
+      "type": "TODO"
+    }
+  ],
+  "2025-05-07": [
+    {
+      "file": "test/srt/ep/test_deepep_low_latency.py",
+      "line": 323,
+      "text": "# TODO: you may modify NUMA binding for less CPU overhead",
+      "type": "TODO"
+    }
+  ],
+  "2025-05-08": [
+    {
+      "file": "test/srt/test_bench_serving.py",
+      "line": 180,
+      "text": "# TODO: not set yet, need AMD machine",
+      "type": "TODO"
+    },
+    {
+      "file": "test/srt/test_bench_serving.py",
+      "line": 204,
+      "text": "# TODO: not set yet, need AMD machine",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/moe/token_dispatcher/deepep.py",
+      "line": 352,
+      "text": "# TODO hard code 128 block quant,use fp8 communication",
+      "type": "TODO"
+    }
+  ],
+  "2025-05-09": [
+    {
+      "file": "python/sglang/srt/layers/attention/flashattention_backend.py",
+      "line": 1794,
+      "text": "# TODO: Handle local attention metadata for draft decode when llama4 eagle is supported",
+      "type": "TODO"
+    }
+  ],
+  "2025-05-11": [
+    {
+      "file": "python/sglang/srt/constrained/xgrammar_backend.py",
+      "line": 60,
+      "text": "key_string: Optional[str] = None,  # TODO (sk): for debugging, remove later",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/managers/schedule_batch.py",
+      "line": 33,
+      "text": "TODO(lmzheng): ModelWorkerBatch seems a bit redundant and we consider removing it in the future.",
+      "type": "TODO"
+    }
+  ],
+  "2025-05-12": [
+    {
+      "file": "test/srt/test_triton_attention_kernels.py",
+      "line": 464,
+      "text": "# TODO: correctnesss test",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/model_executor/model_runner.py",
+      "line": 1983,
+      "text": "# TODO: Currently, cuda graph only captures decode steps, which only exists for generation models",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/gemma3_causal.py",
+      "line": 175,
+      "text": "# FIXME(mick): idk why vllm does this",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/managers/schedule_batch.py",
+      "line": 545,
+      "text": "# TODO (Byron): send_output_token_logprobs_offset and send_decode_id_offset can be different in disaggregation mode",
+      "type": "TODO"
+    }
+  ],
+  "2025-05-13": [
+    {
+      "file": "python/sglang/srt/managers/scheduler.py",
+      "line": 2422,
+      "text": "# TODO: handle the case when moe_dense_tp_size != 1",
+      "type": "TODO"
+    }
+  ],
+  "2025-05-15": [
+    {
+      "file": "python/sglang/srt/layers/attention/flashmla_backend.py",
+      "line": 363,
+      "text": "head_dim_v=self.kv_lora_rank,  # TODO Retrieve from config.",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/flashmla_backend.py",
+      "line": 374,
+      "text": "# todo: need check all causal True or False?",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/flashmla_backend.py",
+      "line": 380,
+      "text": "head_dim_v=self.kv_lora_rank,  # TODO Retrieve from config.",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/flashmla_backend.py",
+      "line": 451,
+      "text": "# TODO: multi step kv indices optimization",
+      "type": "TODO"
+    }
+  ],
+  "2025-05-20": [
+    {
+      "file": "test/srt/test_expert_distribution.py",
+      "line": 21,
+      "text": "# TODO: Add tests for DeepEP gatherer (currently our CI cannot run that)",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/eplb/expert_location.py",
+      "line": 70,
+      "text": "# TODO change when EP size != world size",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/eplb/expert_location.py",
+      "line": 468,
+      "text": "# TODO unify with the utils function",
+      "type": "TODO"
+    }
+  ],
+  "2025-05-21": [
+    {
+      "file": "test/srt/cpu/test_gemm.py",
+      "line": 4,
+      "text": "# TODO: use interface in cpu.py",
+      "type": "TODO"
+    },
+    {
+      "file": "test/srt/cpu/test_shared_expert.py",
+      "line": 5,
+      "text": "# TODO: use interface in cpu.py",
+      "type": "TODO"
+    }
+  ],
+  "2025-05-22": [
+    {
+      "file": "test/srt/ep/test_eplb.py",
+      "line": 106,
+      "text": "# TODO pr-chain: enable later",
+      "type": "TODO"
+    },
+    {
+      "file": "test/srt/ep/test_eplb.py",
+      "line": 134,
+      "text": "# TODO auto determine these flags",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/bench_serving.py",
+      "line": 906,
+      "text": "# TODO can fuse into the real file open later",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/qwen3_moe.py",
+      "line": 125,
+      "text": "# TODO: we will support tp < ep in the future",
+      "type": "TODO"
+    }
+  ],
+  "2025-05-23": [
+    {
+      "file": "test/srt/cpu/test_moe.py",
+      "line": 5,
+      "text": "# TODO: use interface in cpu.py",
+      "type": "TODO"
+    }
+  ],
+  "2025-05-25": [
+    {
+      "file": "python/sglang/srt/operations_strategy.py",
+      "line": 66,
+      "text": "# TODO can refactor to make it more fancy if we have more complex strategies",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/two_batch_overlap.py",
+      "line": 69,
+      "text": "# TODO: may smartly disable TBO when batch size is too small b/c it will slow down",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/two_batch_overlap.py",
+      "line": 692,
+      "text": "# TODO improve, e.g. unify w/ `init_raw`",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/communicator.py",
+      "line": 490,
+      "text": "# TODO move these `if shape != 0` into LayerNorm itself",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/tbo_backend.py",
+      "line": 38,
+      "text": "# TODO for children, maybe can provide *smaller* max_bs to optimize",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/parser/conversation.py",
+      "line": 727,
+      "text": "# TODO (lifuhuang): Refactor BaseMultimodalProcessor to support the default image token \"<|image_{index}|>\" in the future.",
+      "type": "TODO"
+    }
+  ],
+  "2025-05-26": [
+    {
+      "file": "python/sglang/srt/operations_strategy.py",
+      "line": 142,
+      "text": "# TODO: unstable, current strategy is almost the same as DeepSeek, keep redundant code here for",
+      "type": "TODO"
+    }
+  ],
+  "2025-05-27": [
+    {
+      "file": "python/sglang/srt/eplb/expert_distribution.py",
+      "line": 365,
+      "text": "# TODO determine the max number",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/eplb/expert_distribution.py",
+      "line": 376,
+      "text": "# TODO assert shared experts fusion is disabled, o/w data is wrong",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/eplb/expert_distribution.py",
+      "line": 381,
+      "text": "# TODO pr-chain",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/eplb/expert_distribution.py",
+      "line": 702,
+      "text": "if False:  # TODO `server_args.enable_two_batch_overlap`",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/eplb/expert_distribution.py",
+      "line": 707,
+      "text": "if False:  # TODO `server_args.enable_two_batch_overlap`",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/utils/hf_transformers_utils.py",
+      "line": 337,
+      "text": "# TODO(Xinyuan): Remove this once we have a proper tokenizer for Devstral",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/function_call/function_call_parser.py",
+      "line": 217,
+      "text": "# TODO: Return a 400 error instead of warning when adapter supports proper error handling",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/lora/lora_manager.py",
+      "line": 451,
+      "text": "# TODO (lifuhuang): in the future, we should consider generalizing the",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/deepseek_v2.py",
+      "line": 1559,
+      "text": "# TODO(haishaw): add bmm_fp8 to ROCm",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/deepseek_v2.py",
+      "line": 1701,
+      "text": "# TODO(haishaw): add bmm_fp8 to ROCm",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/deepseek_v2.py",
+      "line": 2007,
+      "text": "# TODO(haishaw): add bmm_fp8 to ROCm",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/deepseek_v2.py",
+      "line": 2192,
+      "text": "# TODO(haishaw): add bmm_fp8 to ROCm",
+      "type": "TODO"
+    }
+  ],
+  "2025-05-28": [
+    {
+      "file": "python/sglang/srt/two_batch_overlap.py",
+      "line": 758,
+      "text": "# TODO we may make padding on both sub-batches to make it slightly more balanced",
+      "type": "TODO"
+    }
+  ],
+  "2025-05-29": [
+    {
+      "file": "python/sglang/srt/eplb/eplb_algorithms/__init__.py",
+      "line": 14,
+      "text": "# TODO may have more algorithm later",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/eplb/eplb_algorithms/__init__.py",
+      "line": 59,
+      "text": "# TODO test on real scenarios and know which ones perform better",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/quantization/fp8_utils.py",
+      "line": 194,
+      "text": "# TODO: add more robust shape check here",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/managers/scheduler.py",
+      "line": 2625,
+      "text": "# TODO(lsyin): use dynamically maintained num_waiting_tokens",
+      "type": "TODO"
+    }
+  ],
+  "2025-05-30": [
+    {
+      "file": "python/sglang/srt/eplb/expert_location.py",
+      "line": 342,
+      "text": "# TODO optimize performance (rewrite and/or run in separate process with overlap)",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/triton_backend.py",
+      "line": 134,
+      "text": "# TODO(Jianan Ji): Make sure it behaves as expected when kv_indptr_buf is provided and sliding window is enabled",
+      "type": "TODO"
+    }
+  ],
+  "2025-06-02": [
+    {
+      "file": "python/sglang/srt/eplb/expert_location.py",
+      "line": 238,
+      "text": "# TODO improve when we have real EP rank",
+      "type": "TODO"
+    }
+  ],
+  "2025-06-03": [
+    {
+      "file": "sgl-kernel/csrc/cpu/rope.cpp",
+      "line": 261,
+      "text": "// TODO: add support for head_dim != rotary_dim case when input_dim=3",
+      "type": "TODO"
+    },
+    {
+      "file": "sgl-kernel/csrc/cpu/rope.cpp",
+      "line": 263,
+      "text": "// TODO: add support for kv_head != 1",
+      "type": "TODO"
+    },
+    {
+      "file": "sgl-kernel/csrc/cpu/rope.cpp",
+      "line": 324,
+      "text": "// TODO: add neox style support for rope impl with 3D inputs",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/qwen3_moe.py",
+      "line": 907,
+      "text": "# TODO mimic deepseek",
+      "type": "TODO"
+    }
+  ],
+  "2025-06-04": [
+    {
+      "file": "python/sglang/srt/layers/moe/topk.py",
+      "line": 682,
+      "text": "# TODO: moe_fused_gate kernel is not supported for num_fused_shared_experts > 0 now.",
+      "type": "TODO"
+    }
+  ],
+  "2025-06-05": [
+    {
+      "file": "python/sglang/srt/layers/quantization/fp8_utils.py",
+      "line": 230,
+      "text": "# TODO: https://github.com/sgl-project/sglang/pull/6890#issuecomment-2943395737",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/distributed/device_communicators/pymscclpp.py",
+      "line": 23,
+      "text": "# TODO(zyksir): mscclpp is untested on AMD and therefore disabled.",
+      "type": "TODO"
+    }
+  ],
+  "2025-06-06": [
+    {
+      "file": "python/sglang/srt/layers/quantization/fp8.py",
+      "line": 706,
+      "text": "if _is_hip:  # _use_aiter: TODO: add check back after triton kernel",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/quantization/fp8.py",
+      "line": 931,
+      "text": "# TODO: _use_aiter: add after triton kernel added",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/quantization/fp8.py",
+      "line": 1246,
+      "text": "# TODO: add triton kernel and add check _use_aiter",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/model_executor/model_runner.py",
+      "line": 569,
+      "text": "# TODO current aiter only support head number 16 or 128 head number",
+      "type": "TODO"
+    }
+  ],
+  "2025-06-10": [
+    {
+      "file": "sgl-kernel/csrc/cpu/topk.cpp",
+      "line": 546,
+      "text": "// TODO: Will support num_fused_shared_experts, routed_scaling_factor and num_token_non_padded.",
+      "type": "TODO"
+    },
+    {
+      "file": "sgl-kernel/csrc/cpu/topk.cpp",
+      "line": 624,
+      "text": "// TODO: Will support num_fused_shared_experts, routed_scaling_factor and num_token_non_padded.",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/flashattention_backend.py",
+      "line": 2366,
+      "text": "# TODO: incrementally update the metadata for the later steps,",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/flashattention_backend.py",
+      "line": 2382,
+      "text": "# TODO: fuse these kernels",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/aiter_backend.py",
+      "line": 913,
+      "text": "# (TODO: Kk) WA - CI test_moe_eval_accuracy_large.py",
+      "type": "TODO"
+    }
+  ],
+  "2025-06-11": [
+    {
+      "file": "python/sglang/srt/layers/attention/vision.py",
+      "line": 70,
+      "text": "# TODO: requires real seqlens from images",
+      "type": "TODO"
+    }
+  ],
+  "2025-06-13": [
+    {
+      "file": "python/sglang/srt/layers/attention/triton_backend.py",
+      "line": 1065,
+      "text": "# TODO: this method is tunable, we need more online serving data to tune it",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/moe/topk.py",
+      "line": 699,
+      "text": "# TODO merge into kernel",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/moe/token_dispatcher/deepep.py",
+      "line": 213,
+      "text": "# TODO can be false when unneeded",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/quantization/fp8_kernel.py",
+      "line": 455,
+      "text": "# TODO extract \"align\" function",
+      "type": "TODO"
+    }
+  ],
+  "2025-06-15": [
+    {
+      "file": "python/sglang/srt/disaggregation/decode.py",
+      "line": 339,
+      "text": "# TODO refactor the scheduling part, reuse with the unified engine logic as much as possible",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/disaggregation/decode.py",
+      "line": 447,
+      "text": "# TODO: add new_token ratio",
+      "type": "TODO"
+    }
+  ],
+  "2025-06-16": [
+    {
+      "file": "sgl-kernel/python/sgl_kernel/top_k.py",
+      "line": 10,
+      "text": "# TODO: implement faster cuda kernels for large vocab sizes",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/communicator.py",
+      "line": 374,
+      "text": "# TODO: support --moe-dense-tp-size > 1",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/quantization/fp8_kernel.py",
+      "line": 447,
+      "text": "# TODO(FIXME): Fix cuda kernel and recover here to empty.",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/speculative/eagle_draft_cuda_graph_runner.py",
+      "line": 342,
+      "text": "# TODO: The forward_batch.seq_len_sum might need to be updated to reflect the padding in the cuda graph",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/speculative/eagle_info.py",
+      "line": 395,
+      "text": "# TODO: fuse them",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/speculative/eagle_info.py",
+      "line": 406,
+      "text": "# TODO: boolean array index leads to a device sync. Remove it.",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/speculative/eagle_worker.py",
+      "line": 377,
+      "text": "# TODO(lmzheng): The current implementation is still a fake support",
+      "type": "TODO"
+    }
+  ],
+  "2025-06-17": [
+    {
+      "file": "python/sglang/srt/entrypoints/openai/serving_completions.py",
+      "line": 442,
+      "text": "# TODO: handle the case prompt is token ids",
+      "type": "TODO"
+    }
+  ],
+  "2025-06-18": [
+    {
+      "file": "python/sglang/srt/managers/scheduler.py",
+      "line": 2096,
+      "text": "# todo (zhiqiang): disable cuda graph execution if hicache loading triggered",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/disaggregation/utils.py",
+      "line": 105,
+      "text": "# TODO: abort top_logprobs_num > 128 in PD",
+      "type": "TODO"
+    }
+  ],
+  "2025-06-20": [
+    {
+      "file": "python/sglang/srt/utils/common.py",
+      "line": 2594,
+      "text": "):  # TODO(ch-wan): some MoE models do not have dense layers",
+      "type": "TODO"
+    }
+  ],
+  "2025-06-21": [
+    {
+      "file": "python/sglang/srt/entrypoints/openai/serving_base.py",
+      "line": 89,
+      "text": "# TODO(chang): the rid is used in io_strcut check and often violates `The rid should be a list` AssertionError",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/entrypoints/openai/serving_base.py",
+      "line": 162,
+      "text": "# TODO: remove fastapi dependency in openai and move response handling to the entrypoint",
+      "type": "TODO"
+    }
+  ],
+  "2025-06-22": [
+    {
+      "file": "python/sglang/srt/mem_cache/allocator.py",
+      "line": 92,
+      "text": "# FIXME: reuse the get_cpu_copy after paged allocator is implemented",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/mem_cache/allocator.py",
+      "line": 96,
+      "text": "# FIXME: reuse the load_cpu_copy after paged allocator is implemented",
+      "type": "FIXME"
+    }
+  ],
+  "2025-06-23": [
+    {
+      "file": "test/srt/openai_server/features/test_cache_report.py",
+      "line": 166,
+      "text": "# TODO: flaky test",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/managers/schedule_policy.py",
+      "line": 347,
+      "text": "# TODO(lsyin): report the real input tokens excluding page alignment",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/managers/schedule_policy.py",
+      "line": 437,
+      "text": "# TODO(lsyin): check this workaround logic, which only ensures the prefill will not out of memory, and may be too conservative",
+      "type": "TODO"
+    }
+  ],
+  "2025-06-25": [
+    {
+      "file": "python/sglang/srt/layers/logits_processor.py",
+      "line": 602,
+      "text": "# TODO: use weight_packed_linear for GGUF models",
+      "type": "TODO"
+    }
+  ],
+  "2025-06-26": [
+    {
+      "file": "python/sglang/srt/models/gemma3n_mm.py",
+      "line": 206,
+      "text": "# TODO: Use sglang's vision model",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/gemma3n_causal.py",
+      "line": 237,
+      "text": "# TODO: CHECK DO WE NEED THIS: self.prediction_coefs.float()  # Force computation in float32, in-place operation",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/gemma3n_causal.py",
+      "line": 443,
+      "text": "# TODO: for first 20 layers, we use QKVParallelLinear",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/hunyuan.py",
+      "line": 373,
+      "text": "k_tmp = torch.empty_like(k)  # Todo: reduant rotary embedding",
+      "type": "TODO"
+    }
+  ],
+  "2025-06-28": [
+    {
+      "file": "python/sglang/srt/layers/moe/ep_moe/layer.py",
+      "line": 332,
+      "text": "# TODO check whether need `zeros`",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/mem_cache/memory_pool.py",
+      "line": 934,
+      "text": "# TODO MHATransposedTokenToKVPool if enable_kvcache_transpose is True",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/deepseek_v2.py",
+      "line": 3056,
+      "text": "# TODO: remove this after adding FP8 support in bmm cpu kernel",
+      "type": "TODO"
+    }
+  ],
+  "2025-06-29": [
+    {
+      "file": "python/sglang/srt/managers/tokenizer_manager.py",
+      "line": 129,
+      "text": "# TODO(lianmin): do not initialize some lists if not needed.",
+      "type": "TODO"
+    }
+  ],
+  "2025-07-03": [
+    {
+      "file": "sgl-kernel/benchmark/bench_fp8_blockwise_group_gemm.py",
+      "line": 153,
+      "text": "# TODO(@TianQiLin666666): Unique group_ms in all bench function",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/amx_utils.py",
+      "line": 19,
+      "text": "# TODO: currently gemm kernel has the below requirements:",
+      "type": "TODO"
+    }
+  ],
+  "2025-07-04": [
+    {
+      "file": "python/sglang/srt/utils/common.py",
+      "line": 2688,
+      "text": "# TODO: currently gemm kernel has the below requirements:",
+      "type": "TODO"
+    }
+  ],
+  "2025-07-08": [
+    {
+      "file": "python/sglang/srt/managers/mm_utils.py",
+      "line": 379,
+      "text": "# FIXME(Xinyuan): temporary workaround for eagle3, which may have len(items_size) > len(prefix_length)",
+      "type": "FIXME"
+    }
+  ],
+  "2025-07-09": [
+    {
+      "file": "test/srt/ep/test_deepep_large.py",
+      "line": 102,
+      "text": "\"64\",  # TODO: increase it to 128 when TBO is supported in draft_extend",
+      "type": "TODO"
+    },
+    {
+      "file": "sgl-kernel/csrc/cpu/moe.cpp",
+      "line": 982,
+      "text": "// TODO: support topk_weights to be bf16 or fp16 in the kernel.",
+      "type": "TODO"
+    }
+  ],
+  "2025-07-15": [
+    {
+      "file": "python/sglang/srt/managers/scheduler_output_processor_mixin.py",
+      "line": 138,
+      "text": "# FIXME: this try-except block is for handling unexpected xgrammar issue.",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/managers/scheduler_output_processor_mixin.py",
+      "line": 346,
+      "text": "# FIXME: this try-except block is for handling unexpected xgrammar issue.",
+      "type": "FIXME"
+    }
+  ],
+  "2025-07-16": [
+    {
+      "file": "python/sglang/srt/layers/quantization/gptq.py",
+      "line": 706,
+      "text": "# TODO: remove this requirement from marlin (allow optional tensors)",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/quantization/marlin_utils.py",
+      "line": 62,
+      "text": "#  TODO: we may want to move this into the C++ so its closer to the actual impl",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/quantization/marlin_utils.py",
+      "line": 410,
+      "text": "# TODO(yiyun): Need to add sglang's MARLIN_USE_ATOMIC_ADD: bool = False",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/quantization/marlin_utils.py",
+      "line": 434,
+      "text": "# TODO: Need to add sglang's MARLIN_USE_ATOMIC_ADD: bool = False",
+      "type": "TODO"
+    }
+  ],
+  "2025-07-17": [
+    {
+      "file": "python/sglang/srt/multimodal/processors/base_processor.py",
+      "line": 203,
+      "text": "# TODO: pass from processors",
+      "type": "TODO"
+    }
+  ],
+  "2025-07-18": [
+    {
+      "file": "python/sglang/srt/layers/moe/topk.py",
+      "line": 432,
+      "text": "# TODO: fuse below processing in fused_experts_cpu kernel",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/quantization/awq.py",
+      "line": 508,
+      "text": "# TODO: Update this docs",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/mem_cache/hiradix_cache.py",
+      "line": 617,
+      "text": "# todo: more policies for prefetch progress such as timeout",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/mem_cache/hicache_storage.py",
+      "line": 49,
+      "text": "# todo, the page size of storage backend does not have to be the same as the same as host memory pool",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/multimodal/processors/kimi_vl.py",
+      "line": 19,
+      "text": "# TODO: could we convert in MultimodalSpecialTokens?",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/multimodal/processors/gemma3n.py",
+      "line": 68,
+      "text": "# TODO(mick): could we return MultimodalSpecialTokens directly?",
+      "type": "TODO"
+    }
+  ],
+  "2025-07-19": [
+    {
+      "file": "python/sglang/srt/layers/quantization/petit_utils.py",
+      "line": 90,
+      "text": "# TODO: Use auto-tuning to find the performant solution_id",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/phi4mm_audio.py",
+      "line": 1023,
+      "text": "norm_first=normalize_before,  # TODO need to verify",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/phi4mm_audio.py",
+      "line": 1177,
+      "text": "# TODO: audio sequence compression - Qformer",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/phi4mm_utils.py",
+      "line": 155,
+      "text": "# TODO: Abdel, this can be improved using GLU module",
+      "type": "TODO"
+    }
+  ],
+  "2025-07-25": [
+    {
+      "file": "python/sglang/srt/function_call/qwen3_coder_detector.py",
+      "line": 339,
+      "text": "# TODO: fix idx in function call, the index for a function",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/distributed/parallel_state.py",
+      "line": 634,
+      "text": "# TODO(ch-wan): support other backends",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/distributed/device_communicators/quick_all_reduce.py",
+      "line": 201,
+      "text": "# TODO: If the dtype is not bfloat16 or then float16,",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/speculative/eagle_draft_extend_cuda_graph_runner.py",
+      "line": 360,
+      "text": "# TODO(ch-wan): support num_token_non_padded",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/speculative/eagle_draft_cuda_graph_runner.py",
+      "line": 321,
+      "text": "# TODO(ch-wan): support num_token_non_padded",
+      "type": "TODO"
+    }
+  ],
+  "2025-07-26": [
+    {
+      "file": "test/srt/test_bench_serving.py",
+      "line": 210,
+      "text": "# TODO (lifuhuang): verify LoRA support in AMD.",
+      "type": "TODO"
+    },
+    {
+      "file": "test/srt/test_bench_serving.py",
+      "line": 226,
+      "text": "# TODO (lifuhuang): verify LoRA support in AMD.",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/managers/mm_utils.py",
+      "line": 33,
+      "text": "# TODO(mick): nccl",
+      "type": "TODO"
+    }
+  ],
+  "2025-07-27": [
+    {
+      "file": "python/sglang/srt/disaggregation/prefill.py",
+      "line": 473,
+      "text": "# FIXME: this try-except block is for handling unexpected xgrammar issue.",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/disaggregation/decode_schedule_batch_mixin.py",
+      "line": 112,
+      "text": "# FIXME: this try-except block is for handling unexpected xgrammar issue.",
+      "type": "FIXME"
+    }
+  ],
+  "2025-07-28": [
+    {
+      "file": "python/sglang/srt/layers/moe/ep_moe/layer.py",
+      "line": 111,
+      "text": "# TODO: move to the beginning of the file",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/moe/ep_moe/layer.py",
+      "line": 124,
+      "text": "async_finish=True,  # TODO",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/glm4_moe.py",
+      "line": 471,
+      "text": "# TODO: we will support tp < ep in the future",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/minicpmo.py",
+      "line": 1142,
+      "text": "# TODO (lifuhuang): confirmed with Mick that the logic for past_key_values is copied from minicpmo official code,",
+      "type": "TODO"
+    }
+  ],
+  "2025-07-29": [
+    {
+      "file": "python/sglang/srt/managers/scheduler_update_weights_mixin.py",
+      "line": 73,
+      "text": "# TODO extract common code b/t update_weights_from_distributed and update_weights_from_tensor later",
+      "type": "TODO"
+    }
+  ],
+  "2025-07-30": [
+    {
+      "file": "sgl-router/src/routers/http/router.rs",
+      "line": 376,
+      "text": "// TODO (rui): Better accommodate to the Worker abstraction",
+      "type": "TODO"
+    }
+  ],
+  "2025-07-31": [
+    {
+      "file": "python/sglang/test/attention/test_trtllm_mla_backend.py",
+      "line": 10,
+      "text": "# TODO: change the interface of both trtllm_mla and flashinfer backends to take tp_size as an argument instead of patching",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/moe/fused_moe_triton/layer.py",
+      "line": 159,
+      "text": "# TODO(ch-wan): support shared experts fusion",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/step3_vl.py",
+      "line": 298,
+      "text": "# TODO: support shared experts fusion",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/step3_vl.py",
+      "line": 772,
+      "text": "# TODO: support shared experts fusion",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/step3_vl.py",
+      "line": 919,
+      "text": "# TODO: support vision model",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/multimodal/processors/step3_vl.py",
+      "line": 475,
+      "text": "# TODO, check _processor is tokenizer or processor.",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/managers/cache_controller.py",
+      "line": 297,
+      "text": "# todo: threshold policy for prefetching",
+      "type": "TODO"
+    }
+  ],
+  "2025-08-02": [
+    {
+      "file": "python/sglang/srt/models/mllama4.py",
+      "line": 245,
+      "text": "freqs_ci: torch.Tensor,  # TODO: move this to an attribute instead of keeping it around",
+      "type": "TODO"
+    }
+  ],
+  "2025-08-03": [
+    {
+      "file": "python/sglang/srt/mem_cache/radix_cache_cpp.py",
+      "line": 68,
+      "text": "# todo: dynamically adjust the threshold",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/mem_cache/radix_cache_cpp.py",
+      "line": 205,
+      "text": "# TODO(dark): optimize the `insert` and `match` (e.g. merge into 1 function)",
+      "type": "TODO"
+    }
+  ],
+  "2025-08-04": [
+    {
+      "file": "python/sglang/srt/layers/moe/topk.py",
+      "line": 507,
+      "text": "# TODO: NPU can't support directly evaluating a comparison for now",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/moe/topk.py",
+      "line": 607,
+      "text": "# TODO: NPU can't support directly evaluating a comparison for now",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/quantization/modelopt_quant.py",
+      "line": 916,
+      "text": "# TODO(ch-wan): check if this is needed",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/quantization/modelopt_quant.py",
+      "line": 1078,
+      "text": "epilogue_tile_m = 128  # FIXME: this depends on the kernel internals",
+      "type": "FIXME"
+    }
+  ],
+  "2025-08-05": [
+    {
+      "file": "python/sglang/srt/layers/attention/trtllm_mha_backend.py",
+      "line": 568,
+      "text": "# TODO: add attention_sink operation or nvfp4 scale factor if needed",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/trtllm_mha_backend.py",
+      "line": 626,
+      "text": "# TODO: add attention_sink operation or nvfp4 scale factor if needed",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/moe/fused_moe_triton/layer.py",
+      "line": 757,
+      "text": "# TODO: check self.quant_method.quant_config.quant_format",
+      "type": "TODO"
+    }
+  ],
+  "2025-08-06": [
+    {
+      "file": "python/sglang/srt/layers/moe/fused_moe_triton/triton_kernels_moe.py",
+      "line": 279,
+      "text": "# TODO assert bf16 or mxfp4",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/moe/fused_moe_triton/triton_kernels_moe.py",
+      "line": 300,
+      "text": "# TODO maybe completely remove this branch",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/quantization/mxfp4.py",
+      "line": 489,
+      "text": "epilogue_tile_m = 128  # FIXME: this depends on the kernel internals",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/entrypoints/context.py",
+      "line": 71,
+      "text": "# TODO: Remove the hack of Union[ClientSession, Tool] by using MCP",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/entrypoints/context.py",
+      "line": 78,
+      "text": "# TODO",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/entrypoints/harmony_utils.py",
+      "line": 197,
+      "text": "# TODO: Support refusal.",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/entrypoints/harmony_utils.py",
+      "line": 233,
+      "text": "# TODO: translate to url properly!",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/entrypoints/harmony_utils.py",
+      "line": 307,
+      "text": "annotations=[],  # TODO",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/entrypoints/harmony_utils.py",
+      "line": 309,
+      "text": "logprobs=None,  # TODO",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/entrypoints/harmony_utils.py",
+      "line": 354,
+      "text": "annotations=[],  # TODO",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/entrypoints/harmony_utils.py",
+      "line": 356,
+      "text": "logprobs=None,  # TODO",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/entrypoints/openai/serving_responses.py",
+      "line": 171,
+      "text": "# FIXME: If the engine is dead, raise an error",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/entrypoints/openai/serving_responses.py",
+      "line": 451,
+      "text": "# TODO: these are all 0 for now!",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/entrypoints/openai/serving_responses.py",
+      "line": 556,
+      "text": "annotations=[],  # TODO",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/entrypoints/openai/serving_responses.py",
+      "line": 558,
+      "text": "logprobs=None,  # TODO",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/entrypoints/openai/serving_responses.py",
+      "line": 659,
+      "text": "# FIXME: Currently, request params like reasoning and",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/entrypoints/openai/serving_responses.py",
+      "line": 819,
+      "text": "# TODO:",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/entrypoints/openai/serving_responses.py",
+      "line": 1003,
+      "text": "# TODO, use logprobs from ctx.last_request_output",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/entrypoints/openai/serving_responses.py",
+      "line": 1033,
+      "text": "# TODO: migrate this to",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/entrypoints/openai/serving_responses.py",
+      "line": 1043,
+      "text": "# TODO: migrate to OpenAI types once updated.",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/entrypoints/openai/serving_responses.py",
+      "line": 1073,
+      "text": "# TODO: translate to url",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/entrypoints/openai/serving_responses.py",
+      "line": 1080,
+      "text": "# TODO: translate to url",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/entrypoints/openai/serving_responses.py",
+      "line": 1092,
+      "text": "# TODO: generate a unique id for web search call",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/entrypoints/openai/serving_responses.py",
+      "line": 1168,
+      "text": "# TODO: do we need to add delta event here?",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/entrypoints/openai/serving_responses.py",
+      "line": 1204,
+      "text": "# TODO: add outputs here",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/gpt_oss.py",
+      "line": 718,
+      "text": "# TODO beautify code",
+      "type": "TODO"
+    }
+  ],
+  "2025-08-07": [
+    {
+      "file": "python/sglang/srt/layers/attention/trtllm_mha_backend.py",
+      "line": 544,
+      "text": "# TODO: add support for quantization",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/trtllm_mha_backend.py",
+      "line": 602,
+      "text": "# TODO: add support for quantization",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/dual_chunk_flashattention_backend.py",
+      "line": 1137,
+      "text": "# TODO: support no vertical",
+      "type": "TODO"
+    }
+  ],
+  "2025-08-08": [
+    {
+      "file": "python/sglang/srt/managers/cache_controller.py",
+      "line": 670,
+      "text": "# todo: more sophisticated rate limiting based on storage backend performance",
+      "type": "TODO"
+    }
+  ],
+  "2025-08-09": [
+    {
+      "file": "test/srt/test_gpt_oss_1gpu.py",
+      "line": 14,
+      "text": "\"high\": 0.27,  # TODO investigate",
+      "type": "TODO"
+    },
+    {
+      "file": "test/srt/test_gpt_oss_1gpu.py",
+      "line": 25,
+      "text": "\"high\": 0.27,  # TODO investigate",
+      "type": "TODO"
+    },
+    {
+      "file": "test/srt/test_gpt_oss_common.py",
+      "line": 90,
+      "text": "# TODO 4k is still not enough, we need e.g. 64k token, but that is super slow",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/mem_cache/storage/hf3fs/storage_hf3fs.py",
+      "line": 392,
+      "text": "# Todo: Add prefix block's hash key",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/mem_cache/storage/hf3fs/mini_3fs_metadata_server.py",
+      "line": 33,
+      "text": "# Todo: Support multi files for HF3FS",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/mem_cache/storage/hf3fs/mini_3fs_metadata_server.py",
+      "line": 55,
+      "text": "# Todo: Implementing data eviction logic after HiCache supports prefix information pass-through",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/model_executor/forward_batch_info.py",
+      "line": 745,
+      "text": "# TODO: check if we need to pad other tensors",
+      "type": "TODO"
+    }
+  ],
+  "2025-08-12": [
+    {
+      "file": "python/sglang/srt/layers/attention/wave_backend.py",
+      "line": 37,
+      "text": "# TODO: this method is tunable, we need more online serving data to tune it",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/wave_backend.py",
+      "line": 295,
+      "text": "# TODO(FIXME): This will trigger an invalid Eagle tree when using",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/wave_backend.py",
+      "line": 552,
+      "text": "# TODO: reuse the buffer across layers",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/wave_backend.py",
+      "line": 602,
+      "text": "# TODO: reuse the buffer across layers",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/moe/fused_moe_triton/layer.py",
+      "line": 180,
+      "text": "# TODO maybe we should remove this `if`, since `Mxfp4MoEMethod` does another round-up logic",
+      "type": "TODO"
+    }
+  ],
+  "2025-08-13": [
+    {
+      "file": "python/sglang/srt/layers/attention/flashinfer_backend.py",
+      "line": 1151,
+      "text": "# TODO: remove this device sync, we can use forward_batch.extend_prefix_lens_cpu",
+      "type": "TODO"
+    }
+  ],
+  "2025-08-14": [
+    {
+      "file": "python/sglang/srt/layers/attention/trtllm_mha_backend.py",
+      "line": 30,
+      "text": "512  # Memory workspace size in MB, todo(Yingyi): read from config",
+      "type": "TODO"
+    }
+  ],
+  "2025-08-15": [
+    {
+      "file": "python/sglang/srt/layers/quantization/mxfp4.py",
+      "line": 399,
+      "text": "# TODO: these values are hardcoded for now, we need to get them from the model",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/quantization/mxfp4.py",
+      "line": 693,
+      "text": "None,  # n_group      # TODO: support n_group",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/quantization/mxfp4.py",
+      "line": 694,
+      "text": "None,  # topk_group   # TODO: support topk_group",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/quantization/fp8_utils.py",
+      "line": 116,
+      "text": "# TODO(ch-wan): define these backends in --moe-runner-backend",
+      "type": "TODO"
+    }
+  ],
+  "2025-08-19": [
+    {
+      "file": "python/sglang/srt/model_executor/cuda_graph_runner.py",
+      "line": 161,
+      "text": "# FIXME: tmp workaround",
+      "type": "FIXME"
+    }
+  ],
+  "2025-08-20": [
+    {
+      "file": "python/sglang/srt/managers/template_manager.py",
+      "line": 92,
+      "text": "# TODO: remove this hard code the reasoning pattern",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/managers/tokenizer_manager.py",
+      "line": 616,
+      "text": "# FIXME: unify the length validation logic with the one in the scheduler.",
+      "type": "FIXME"
+    }
+  ],
+  "2025-08-21": [
+    {
+      "file": "python/sglang/srt/layers/quantization/fp8_kernel.py",
+      "line": 530,
+      "text": "# TODO maybe unify int8 and fp8 code later",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/model_executor/model_runner.py",
+      "line": 1666,
+      "text": "# FIXME(lsyin): this is the temporary fix for the context length issue when using speculative decoding",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/configs/model_config.py",
+      "line": 274,
+      "text": "or is_in_ci()  # FIXME: fix this special case",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/disaggregation/utils.py",
+      "line": 98,
+      "text": "# TODO(shangming): Fix me (use 'cuda') when nvlink_transport of Mooncake is bug-free",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/disaggregation/mooncake/conn.py",
+      "line": 554,
+      "text": "# TODO(shangming): Fix me when nvlink_transport of Mooncake is bug-free",
+      "type": "TODO"
+    }
+  ],
+  "2025-08-22": [
+    {
+      "file": "python/sglang/srt/entrypoints/context.py",
+      "line": 88,
+      "text": "# TODO: REMOVE here:",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/entrypoints/context.py",
+      "line": 203,
+      "text": "# TODO: REMOVE here:",
+      "type": "TODO"
+    }
+  ],
+  "2025-08-23": [
+    {
+      "file": "python/sglang/srt/layers/quantization/mxfp4.py",
+      "line": 315,
+      "text": "# TODO: this is a hack to make",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/quantization/fp8_kernel.py",
+      "line": 248,
+      "text": "bit8_min = -bit8_max  # TODO incorrect for int8",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/utils/host_shared_memory.py",
+      "line": 34,
+      "text": "# TODO handle dispose",
+      "type": "TODO"
+    }
+  ],
+  "2025-08-25": [
+    {
+      "file": "python/sglang/srt/utils/offloader.py",
+      "line": 475,
+      "text": "# TODO unify with ShmCpu mode",
+      "type": "TODO"
+    }
+  ],
+  "2025-08-26": [
+    {
+      "file": "python/sglang/srt/layers/attention/ascend_backend.py",
+      "line": 287,
+      "text": "input_layout=\"BSND\",  # todo, TND not supports q_heads!=k_heads",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/flashattention_backend.py",
+      "line": 2166,
+      "text": "# TODO: support page_size > 1 for swa spec",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/mem_cache/storage/mooncake_store/mooncake_store.py",
+      "line": 387,
+      "text": "# TODO: return the number of consecutive successful operations from the start.",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/managers/cache_controller.py",
+      "line": 793,
+      "text": "# todo: allow partial success",
+      "type": "TODO"
+    }
+  ],
+  "2025-08-27": [
+    {
+      "file": "sgl-router/tests/tool_parser_step3.rs",
+      "line": 184,
+      "text": "// TODO: Verify normal text extraction",
+      "type": "TODO"
+    },
+    {
+      "file": "sgl-router/tests/tool_parser_kimik2.rs",
+      "line": 143,
+      "text": "// TODO: Verify indices are preserved: 0 and 1",
+      "type": "TODO"
+    },
+    {
+      "file": "sgl-router/tests/tool_parser_gpt_oss.rs",
+      "line": 177,
+      "text": "// TODO: Verify normal text = \"The result is calculated.\"",
+      "type": "TODO"
+    },
+    {
+      "file": "sgl-router/tests/tool_parser_gpt_oss.rs",
+      "line": 191,
+      "text": "// TODO: Verify normal text = \"Let me think Processing...\"",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/quantization/deep_gemm_wrapper/compile_utils.py",
+      "line": 72,
+      "text": "# TODO improve code",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/quantization/deep_gemm_wrapper/compile_utils.py",
+      "line": 90,
+      "text": "# TODO maybe improve logs",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/quantization/deep_gemm_wrapper/compile_utils.py",
+      "line": 135,
+      "text": "# TODO can use multi thread",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/quantization/deep_gemm_wrapper/entrypoint.py",
+      "line": 25,
+      "text": "# TODO maybe rename these functions",
+      "type": "TODO"
+    }
+  ],
+  "2025-08-28": [
+    {
+      "file": "python/sglang/srt/connector/serde/safe_serde.py",
+      "line": 23,
+      "text": "# TODO: dtype options",
+      "type": "TODO"
+    }
+  ],
+  "2025-08-29": [
+    {
+      "file": "sgl-kernel/csrc/cpu/common.h",
+      "line": 263,
+      "text": "// TODO: implement reverse order of [MB / cache_blocks_mb, NB, cache_blocks_mb]",
+      "type": "TODO"
+    }
+  ],
+  "2025-08-31": [
+    {
+      "file": "python/sglang/srt/models/longcat_flash_nextn.py",
+      "line": 438,
+      "text": "# TODO: remove this after adding FP8 support in bmm cpu kernel",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/longcat_flash.py",
+      "line": 747,
+      "text": "# TODO: remove this after adding FP8 support in bmm cpu kernel",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/managers/cache_controller.py",
+      "line": 280,
+      "text": "# todo: load balancing",
+      "type": "TODO"
+    }
+  ],
+  "2025-09-02": [
+    {
+      "file": "python/sglang/srt/models/longcat_flash.py",
+      "line": 786,
+      "text": "# TODO(linguoyuan) EPMoE not support DEEPGEMM_BLACKWELL, DeepEP needs to be supported in the future",
+      "type": "TODO"
+    }
+  ],
+  "2025-09-04": [
+    {
+      "file": "python/sglang/srt/layers/rocm_linear_utils.py",
+      "line": 21,
+      "text": "# TODO (cagri): convert to bfloat16 as part of another kernel to save time",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/distributed/parallel_state.py",
+      "line": 1558,
+      "text": "# TODO(ch-wan): use split_group to save memory",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/distributed/parallel_state.py",
+      "line": 1578,
+      "text": "# TODO(ch-wan): use split_group to save memory",
+      "type": "TODO"
+    }
+  ],
+  "2025-09-05": [
+    {
+      "file": "python/sglang/srt/mem_cache/hiradix_cache.py",
+      "line": 114,
+      "text": "# TODO: support pp",
+      "type": "TODO"
+    }
+  ],
+  "2025-09-06": [
+    {
+      "file": "python/sglang/test/test_disaggregation_utils.py",
+      "line": 62,
+      "text": "\"--mini-lb\",  # FIXME: remove this",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/layers/moe/token_dispatcher/standard.py",
+      "line": 59,
+      "text": "# TODO: this branch should be removed in the future",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/moe/token_dispatcher/base.py",
+      "line": 76,
+      "text": "# TODO: add hidden_states to the protocol",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/moe/token_dispatcher/base.py",
+      "line": 124,
+      "text": "# TODO: add hidden_states to the protocol",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/moe/moe_runner/triton.py",
+      "line": 114,
+      "text": "# TODO: move these functions to the triton runner",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/moe/moe_runner/base.py",
+      "line": 146,
+      "text": "# TODO: check if registration is valid",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/moe/moe_runner/base.py",
+      "line": 168,
+      "text": "# TODO: check if registration is valid",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/moe/fused_moe_triton/layer.py",
+      "line": 830,
+      "text": "# TODO: consider using symmetric memory",
+      "type": "TODO"
+    }
+  ],
+  "2025-09-08": [
+    {
+      "file": "python/sglang/srt/server_args.py",
+      "line": 1192,
+      "text": "# TODO: support dp attention for standalone speculative decoding",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/model_executor/cpu_graph_runner.py",
+      "line": 341,
+      "text": "# TODO Remove unnecessary settings for CPUGraphRunner.",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/model_executor/cpu_graph_runner.py",
+      "line": 396,
+      "text": "# TODO add compile support for encoder-decoder models",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/model_executor/cpu_graph_runner.py",
+      "line": 588,
+      "text": "# TODO add padding support for CPUGraphRunner",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/model_executor/forward_batch_info.py",
+      "line": 504,
+      "text": "# TODO support batched deltas",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/speculative/standalone_worker.py",
+      "line": 75,
+      "text": "pp_rank=0,  # FIXME",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/managers/tokenizer_communicator_mixin.py",
+      "line": 457,
+      "text": "# TODO (lifuhuang): Remove this after we verify that dynamic lora loading works",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/managers/tokenizer_communicator_mixin.py",
+      "line": 519,
+      "text": "# TODO (lifuhuang): Remove this after we verify that dynamic lora loading works",
+      "type": "TODO"
+    }
+  ],
+  "2025-09-09": [
+    {
+      "file": "sgl-kernel/tests/test_flash_attention_4.py",
+      "line": 627,
+      "text": "# TODO: test zero_lengths",
+      "type": "TODO"
+    },
+    {
+      "file": "sgl-kernel/python/sgl_kernel/_fa4_interface.py",
+      "line": 244,
+      "text": "if compute_capability == 9:  # TODO: tune block size according to hdim",
+      "type": "TODO"
+    },
+    {
+      "file": "sgl-kernel/python/sgl_kernel/_fa4_interface.py",
+      "line": 248,
+      "text": "# TODO: fix the varlen case",
+      "type": "TODO"
+    },
+    {
+      "file": "sgl-kernel/python/sgl_kernel/_fa4_interface.py",
+      "line": 321,
+      "text": "# TODO: check @can_implement",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/server_args.py",
+      "line": 291,
+      "text": "# FIXME: remove this after dp rank scheduling is fully supported with PD-Disaggregation",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/disaggregation/common/conn.py",
+      "line": 336,
+      "text": "# FIXME: alias here: target_dp_group -> prefill_dp_rank",
+      "type": "FIXME"
+    }
+  ],
+  "2025-09-10": [
+    {
+      "file": "scripts/ci/amd_ci_install_dependency.sh",
+      "line": 23,
+      "text": "docker exec ci_sglang pip install -e \"python[dev_hip]\" --no-deps # TODO: only for mi35x",
+      "type": "TODO"
+    },
+    {
+      "file": "scripts/ci/amd_ci_install_dependency.sh",
+      "line": 26,
+      "text": "docker exec -w /lmms-eval ci_sglang pip install -e . --no-deps # TODO: only for mi35x",
+      "type": "TODO"
+    }
+  ],
+  "2025-09-11": [
+    {
+      "file": "python/sglang/srt/mem_cache/memory_pool.py",
+      "line": 821,
+      "text": "# TODO MHATransposedTokenToKVPool if enable_kvcache_transpose is True",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/qwen3_next.py",
+      "line": 1003,
+      "text": "# TODO(fix mtp loading)",
+      "type": "TODO"
+    }
+  ],
+  "2025-09-12": [
+    {
+      "file": "sgl-router/src/routers/router_manager.rs",
+      "line": 280,
+      "text": "// TODO: Once routers expose worker stats, we can evaluate:",
+      "type": "TODO"
+    },
+    {
+      "file": "sgl-router/src/routers/router_manager.rs",
+      "line": 302,
+      "text": "// TODO: Should check if any router has healthy workers",
+      "type": "TODO"
+    },
+    {
+      "file": "sgl-router/src/routers/router_manager.rs",
+      "line": 311,
+      "text": "// TODO: Aggregate info from all routers with healthy workers",
+      "type": "TODO"
+    },
+    {
+      "file": "sgl-router/src/routers/router_manager.rs",
+      "line": 342,
+      "text": "// TODO: Extract model from request and route to appropriate router",
+      "type": "TODO"
+    },
+    {
+      "file": "sgl-router/src/routers/http/router.rs",
+      "line": 279,
+      "text": "// TODO: currently the sglang worker is using in-memory state management, so this implementation has to fan out to all workers.",
+      "type": "TODO"
+    },
+    {
+      "file": "sgl-router/src/grpc_client/sglang_scheduler.rs",
+      "line": 610,
+      "text": "// TODO: SessionParams not in current proto - skip test",
+      "type": "TODO"
+    },
+    {
+      "file": "sgl-router/src/grpc_client/sglang_scheduler.rs",
+      "line": 669,
+      "text": "// TODO: ModelInfo not in current proto - skip test",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/entrypoints/grpc_server.py",
+      "line": 146,
+      "text": "# TODO(CatherineSue): handle cases for multi-node",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/entrypoints/grpc_server.py",
+      "line": 555,
+      "text": "mm_inputs=None,  # TODO: implement mm support",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/bailing_moe.py",
+      "line": 285,
+      "text": "# TODO: we will support tp < ep in the future",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/bailing_moe.py",
+      "line": 297,
+      "text": "async_finish=True,  # TODO",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/bailing_moe.py",
+      "line": 821,
+      "text": "# TODO something wrong with ParallelLMHead with DP attention enabled",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/apertus.py",
+      "line": 348,
+      "text": "# FIXME(@ying): reduce the number of proxy tensors by not fusing layer norms",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/managers/tokenizer_communicator_mixin.py",
+      "line": 403,
+      "text": "# TODO: support DP",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/managers/tokenizer_communicator_mixin.py",
+      "line": 418,
+      "text": "# TODO: support DP",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/grpc/grpc_request_manager.py",
+      "line": 296,
+      "text": "# TODO: support log_request",
+      "type": "TODO"
+    }
+  ],
+  "2025-09-13": [
+    {
+      "file": "python/sglang/srt/managers/scheduler.py",
+      "line": 1449,
+      "text": "# TODO: For text generation, evaluate setting logprob_start_len to len(req.origin_input_ids) as well",
+      "type": "TODO"
+    }
+  ],
+  "2025-09-14": [
+    {
+      "file": "python/sglang/srt/server_args.py",
+      "line": 480,
+      "text": "# FIXME: hack to reduce ITL when decode bs is small",
+      "type": "FIXME"
+    }
+  ],
+  "2025-09-15": [
+    {
+      "file": "python/sglang/srt/layers/moe/ep_moe/layer.py",
+      "line": 731,
+      "text": "# FIXME: FlashInferFusedMoE only supports fp8 quant now",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/lora/triton_ops/chunked_sgmv_shrink.py",
+      "line": 141,
+      "text": "# TODO (lifuhuang): experiment with split-k",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/lora/triton_ops/chunked_sgmv_expand.py",
+      "line": 176,
+      "text": "# TODO (lifuhuang): fine-tune per operation",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/managers/data_parallel_controller.py",
+      "line": 74,
+      "text": "# TODO: support minimum tokens method",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/managers/tokenizer_manager.py",
+      "line": 324,
+      "text": "# TODO: Add lora name/path in the future,",
+      "type": "TODO"
+    }
+  ],
+  "2025-09-16": [
+    {
+      "file": "python/sglang/srt/layers/dp_attention.py",
+      "line": 74,
+      "text": "# TODO(kkhuang-amd): noqa, temporary work-around for rocm 7.0.0 alpha",
+      "type": "TODO"
+    }
+  ],
+  "2025-09-17": [
+    {
+      "file": "test/srt/hicache/test_hicache_storage_mooncake_backend.py",
+      "line": 215,
+      "text": "# Same as #10131, layer first layout test TODO(mateng): will make it work",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/utils/rpd_utils.py",
+      "line": 50,
+      "text": "# FIXME - these aren't rendering correctly in chrome://tracing",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/utils/rpd_utils.py",
+      "line": 361,
+      "text": "# FIXME: include 'start' (in ns) so we can ORDER BY it and break ties?",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/mem_cache/chunk_cache.py",
+      "line": 37,
+      "text": "# TODO (csy): Using a prefix cache trait to replace this",
+      "type": "TODO"
+    }
+  ],
+  "2025-09-18": [
+    {
+      "file": "python/sglang/srt/layers/attention/torch_flex_backend.py",
+      "line": 28,
+      "text": "# TODO: find a more elegant way to save memory",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/torch_flex_backend.py",
+      "line": 119,
+      "text": "# TODO: this loop process a sequence per iter, this is inefficient.",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/torch_flex_backend.py",
+      "line": 201,
+      "text": "# TODO: this loop process a sequence per iter, this is inefficient.",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/qwen2_moe.py",
+      "line": 192,
+      "text": "# TODO: we will support tp < ep in the future",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/speculative/ngram_info.py",
+      "line": 202,
+      "text": "# TODO: boolean array index leads to a device sync. Remove it.",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/speculative/ngram_worker.py",
+      "line": 200,
+      "text": "# FIXME: Whether to insert 'extend' into the cache or not, after testing,",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/disaggregation/nixl/conn.py",
+      "line": 167,
+      "text": "TODO (smor): unite nixl heartbeat checker with mooncake's.",
+      "type": "TODO"
+    }
+  ],
+  "2025-09-20": [
+    {
+      "file": "python/sglang/srt/models/deepseek_v2.py",
+      "line": 335,
+      "text": "# TODO(cicirori): use FA4 MHA for DeepSeekV3 for now",
+      "type": "TODO"
+    }
+  ],
+  "2025-09-22": [
+    {
+      "file": "sgl-router/tests/api_endpoints_test.rs",
+      "line": 992,
+      "text": "// TODO: Update test after worker management refactoring",
+      "type": "TODO"
+    },
+    {
+      "file": "sgl-router/src/core/worker_manager.rs",
+      "line": 370,
+      "text": "// TODO: Add proper DP-aware support for prefill workers in PD mode",
+      "type": "TODO"
+    },
+    {
+      "file": "sgl-router/src/core/worker_manager.rs",
+      "line": 419,
+      "text": "// TODO: Add proper DP-aware support for decode workers in PD mode",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/trtllm_mla_backend.py",
+      "line": 658,
+      "text": "# TODO may use `mla_rope_quantize_fp8` fusion",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/mem_cache/hicache_storage.py",
+      "line": 91,
+      "text": "# TODO: Deprecate",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/mem_cache/hicache_storage.py",
+      "line": 119,
+      "text": "# TODO: Deprecate",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/mem_cache/hicache_storage.py",
+      "line": 142,
+      "text": "# TODO: Use a finer-grained return type (e.g., List[bool])",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/managers/cache_controller.py",
+      "line": 597,
+      "text": "# todo: deprecate",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/managers/cache_controller.py",
+      "line": 770,
+      "text": "# todo: deprecate",
+      "type": "TODO"
+    }
+  ],
+  "2025-09-23": [
+    {
+      "file": "sgl-router/src/routers/router_manager.rs",
+      "line": 109,
+      "text": "// TODO: Add gRPC routers once we have dynamic tokenizer loading",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/server_args.py",
+      "line": 933,
+      "text": "# FIXME: https://github.com/sgl-project/sglang/pull/7367 is not compatible with gemma2 model.",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/npu_ops/mla_preprocess.py",
+      "line": 338,
+      "text": "# TODO: dummy inputs to be removed",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/utils/common.py",
+      "line": 198,
+      "text": "# FIXME: move your environment variable to sglang.srt.environ",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/utils/common.py",
+      "line": 216,
+      "text": "# FIXME: move your environment variable to sglang.srt.environ",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/models/deepseek_v2.py",
+      "line": 1343,
+      "text": "# TODO(iforgetmyname): to be separated as a standalone func",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/qwen3_vl.py",
+      "line": 368,
+      "text": "# TODO: use torch instand of np",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/qwen3_vl_moe.py",
+      "line": 243,
+      "text": "# [TODO] Skip layers that are on other devices (check if sglang has a similar function)",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/qwen3_vl_moe.py",
+      "line": 337,
+      "text": "# TODO mimic deepseek",
+      "type": "TODO"
+    }
+  ],
+  "2025-09-24": [
+    {
+      "file": "sgl-router/src/routers/grpc/router.rs",
+      "line": 170,
+      "text": "// TODO: Implement actual generation test for gRPC",
+      "type": "TODO"
+    },
+    {
+      "file": "sgl-router/src/routers/grpc/pd_router.rs",
+      "line": 188,
+      "text": "// TODO: Implement actual generation test for gRPC PD mode",
+      "type": "TODO"
+    }
+  ],
+  "2025-09-25": [
+    {
+      "file": "sgl-router/src/grpc_client/sglang_scheduler.rs",
+      "line": 318,
+      "text": "None => false, // TODO: this assumes tool_choice defaults to \"auto\" when tools present",
+      "type": "TODO"
+    }
+  ],
+  "2025-09-26": [
+    {
+      "file": "python/sglang/bench_one_batch_server.py",
+      "line": 308,
+      "text": "# TODO: reuse bench_serving.get_dataset ?",
+      "type": "TODO"
+    }
+  ],
+  "2025-09-27": [
+    {
+      "file": "sgl-router/tests/tool_parser_gpt_oss.rs",
+      "line": 164,
+      "text": "// TODO: Verify normal text = \"**Action plan**: 1. Do X 2. Do Y\"",
+      "type": "TODO"
+    }
+  ],
+  "2025-09-29": [
+    {
+      "file": "python/sglang/srt/server_args.py",
+      "line": 1303,
+      "text": "# TODO: support dp attention for ngram speculative decoding",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/mllama4.py",
+      "line": 455,
+      "text": "# TODO: make this more general",
+      "type": "TODO"
+    }
+  ],
+  "2025-09-30": [
+    {
+      "file": "python/sglang/srt/layers/quantization/compressed_tensors/schemes/compressed_tensors_w8a8_int8.py",
+      "line": 168,
+      "text": "# TODO: add cutlass_scaled_mm_azp support",
+      "type": "TODO"
+    }
+  ],
+  "2025-10-01": [
+    {
+      "file": "python/sglang/srt/mem_cache/hiradix_cache.py",
+      "line": 95,
+      "text": "# TODO: support more timeout check functions",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/model_executor/forward_batch_info.py",
+      "line": 750,
+      "text": "# FIXME(lsyin): remove this isinstance logic",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/speculative/spec_info.py",
+      "line": 59,
+      "text": "# FIXME: remove this function which is only used for assertion",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/speculative/spec_utils.py",
+      "line": 43,
+      "text": "TREE_TRAVERSE_TIME_THRESHOLD = 1  # TODO: set this properly",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/managers/scheduler_metrics_mixin.py",
+      "line": 89,
+      "text": "# TODO: generalize this for various memory pools",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/managers/scheduler_metrics_mixin.py",
+      "line": 203,
+      "text": "# TODO: generalize this for various memory pools",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/managers/tokenizer_manager.py",
+      "line": 1047,
+      "text": "# TODO: also use custom_labels from the request",
+      "type": "TODO"
+    }
+  ],
+  "2025-10-02": [
+    {
+      "file": "python/sglang/srt/single_batch_overlap.py",
+      "line": 17,
+      "text": "# TODO may have: \"enable_dispatch_shared_one_stream_overlap\", \"enable_dispatch_gateup_gemm_two_stream_overlap\", ...",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/single_batch_overlap.py",
+      "line": 33,
+      "text": "# TODO after antgroup's PR, should be `... or cls.enable_dispatch_shared_one_stream_overlap()`",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/single_batch_overlap.py",
+      "line": 81,
+      "text": "# TODO reduce sm for non-deepgemm",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/single_batch_overlap.py",
+      "line": 131,
+      "text": "# TODO use zero_allocator to remove this `torch.zeros` call",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/trtllm_mla_backend.py",
+      "line": 579,
+      "text": "# TODO refactor to avoid code duplication",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/trtllm_mla_backend.py",
+      "line": 609,
+      "text": "# TODO refactor to avoid code duplication",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/moe/flashinfer_cutedsl_moe.py",
+      "line": 124,
+      "text": "# TODO(kaixih@nvidia): dtype should be based on inputs.",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/quantization/modelopt_quant.py",
+      "line": 84,
+      "text": "# TODO make it true by default when the DeepEP PR is merged",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/distributed/parallel_state.py",
+      "line": 922,
+      "text": "TODO: If you want to use GPU communication, please add a new argument (e.g., data_group, group),",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/speculative/ngram_info.py",
+      "line": 86,
+      "text": "# TODO(lsyin): add prefix lens cpu here to support page size > 1",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/speculative/eagle_info.py",
+      "line": 401,
+      "text": "# FIXME: this `tolist()` fixes the numerical calculation consistency",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/managers/scheduler.py",
+      "line": 1166,
+      "text": "# FIXME(lsyin): remove this assert",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/managers/scheduler.py",
+      "line": 2187,
+      "text": "# FIXME(lsyin): remove this if and finally unify the abstraction",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/disaggregation/prefill.py",
+      "line": 891,
+      "text": "# FIXME(lsyin): remove this assert",
+      "type": "FIXME"
+    }
+  ],
+  "2025-10-03": [
+    {
+      "file": "python/sglang/srt/managers/io_struct.py",
+      "line": 1196,
+      "text": "# FIXME: This is a hack to keep the same with the old code",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/managers/io_struct.py",
+      "line": 1415,
+      "text": "# FIXME(lsyin): remove this",
+      "type": "FIXME"
+    }
+  ],
+  "2025-10-05": [
+    {
+      "file": "sgl-kernel/tests/test_topk.py",
+      "line": 85,
+      "text": "# TODO(dark): test prefill kernel, though nothing special",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/entrypoints/openai/protocol.py",
+      "line": 1020,
+      "text": "incomplete_details: Optional[dict] = None  # TODO(v) support this input",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/entrypoints/openai/protocol.py",
+      "line": 1101,
+      "text": "previous_response_id=request.previous_response_id,  # TODO(v): ensure this is propagated if retrieved from store",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/entrypoints/openai/protocol.py",
+      "line": 1108,
+      "text": "text=text_format,  # TODO(v): Expand coverage per https://platform.openai.com/docs/api-reference/responses/list",
+      "type": "TODO"
+    }
+  ],
+  "2025-10-06": [
+    {
+      "file": "python/sglang/srt/two_batch_overlap.py",
+      "line": 713,
+      "text": "# TODO: handle it when we need TBO + DeepSeek V3.2",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/modelopt_utils.py",
+      "line": 7,
+      "text": "\"int4_awq\": \"INT4_AWQ_CFG\",  # TODO: add support for int4_awq",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/modelopt_utils.py",
+      "line": 8,
+      "text": "\"w4a8_awq\": \"W4A8_AWQ_BETA_CFG\",  # TODO: add support for w4a8_awq",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/modelopt_utils.py",
+      "line": 10,
+      "text": "\"nvfp4_awq\": \"NVFP4_AWQ_LITE_CFG\",  # TODO: add support for nvfp4_awq",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/nsa_backend.py",
+      "line": 281,
+      "text": "seq_len_q=1,  # TODO handle MTP which is not 1",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/nsa_backend.py",
+      "line": 325,
+      "text": "seq_len_q=1,  # TODO handle MTP which is not 1",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/nsa_backend.py",
+      "line": 376,
+      "text": "seq_len_q=1,  # TODO handle MTP which is not 1",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/nsa_backend.py",
+      "line": 458,
+      "text": "seq_len_q=1,  # TODO handle MTP which is not 1",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/nsa_backend.py",
+      "line": 563,
+      "text": "# TODO optimize args",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/nsa_backend.py",
+      "line": 657,
+      "text": "# TODO optimize args",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/nsa_backend.py",
+      "line": 773,
+      "text": "# TODO the 2nd dim is seq_len_q, need to be >1 when MTP",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/nsa_backend.py",
+      "line": 875,
+      "text": "# TODO doc says `num_q_tokens_per_q_seq * num_heads_q // num_heads_k`",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/nsa/transform_index.py",
+      "line": 78,
+      "text": "# TODO(baizhou): can be implemented with another triton kernel",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/nsa/quant_k_cache.py",
+      "line": 9,
+      "text": "# TODO upstream can skip concat([k_nope, k_pe]) since we split them here",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/nsa/quant_k_cache.py",
+      "line": 75,
+      "text": "# TODO the final API may be 2D instead of 4D, thus we convert them here",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/nsa/quant_k_cache.py",
+      "line": 82,
+      "text": "# TODO deliberately split into two tensors, then upstream can provide the two tensors instead of concat into one",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/nsa/quant_k_cache.py",
+      "line": 247,
+      "text": "# TODO too different?",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/nsa/nsa_indexer.py",
+      "line": 238,
+      "text": "# TODO we should also put DeepGEMM half SM here?",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/attention/nsa/dequant_k_cache.py",
+      "line": 57,
+      "text": "# TODO the final API may be 2D instead of 4D, thus we convert them here",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/mem_cache/memory_pool.py",
+      "line": 1245,
+      "text": "# TODO do not hardcode",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/mem_cache/memory_pool.py",
+      "line": 1344,
+      "text": "# TODO no need to cat",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/mem_cache/memory_pool.py",
+      "line": 1484,
+      "text": "# TODO rename later (currently use diff name to avoid confusion)",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/deepseek_v2.py",
+      "line": 1872,
+      "text": "# TODO(haishaw): add bmm_fp8 to ROCm",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/deepseek_v2.py",
+      "line": 1912,
+      "text": "# TODO: multi-stream indexer",
+      "type": "TODO"
+    }
+  ],
+  "2025-10-07": [
+    {
+      "file": "python/sglang/srt/managers/scheduler.py",
+      "line": 258,
+      "text": "# TODO(lsyin): refactor PP and avoid using dict",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/managers/scheduler.py",
+      "line": 999,
+      "text": "# FIXME(lsyin): hacky way to keep a reference to avoid GPU tensors being freed by torch GC",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/managers/scheduler.py",
+      "line": 2191,
+      "text": "# FIXME: remove this assert",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/managers/scheduler.py",
+      "line": 2210,
+      "text": "# FIXME(lsyin): maybe move this to forward_batch_generation",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/managers/scheduler.py",
+      "line": 2220,
+      "text": "# FIXME(lsyin): move this assignment elsewhere",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/managers/scheduler.py",
+      "line": 2247,
+      "text": "#       which can probably be replaced by future_indices later [TODO(lsyin)].",
+      "type": "TODO"
+    }
+  ],
+  "2025-10-08": [
+    {
+      "file": "test/srt/test_nightly_text_models_perf.py",
+      "line": 26,
+      "text": "# TODO: replace with DEFAULT_MODEL_NAME_FOR_NIGHTLY_EVAL_TP1 or other model lists",
+      "type": "TODO"
+    },
+    {
+      "file": "test/srt/layers/attention/mamba/test_mamba_ssm_ssd.py",
+      "line": 16,
+      "text": "# TODO: These take a long time to run - we should cut down on some of the parameterized matrix.",
+      "type": "TODO"
+    },
+    {
+      "file": "test/srt/layers/attention/mamba/test_mamba_ssm_ssd.py",
+      "line": 204,
+      "text": "# TODO: the bfloat16 case requires higher thresholds. To be investigated",
+      "type": "TODO"
+    },
+    {
+      "file": "sgl-router/src/routers/grpc/streaming.rs",
+      "line": 695,
+      "text": "//TODO add streaming logprob support",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/moe/ep_moe/kernels.py",
+      "line": 915,
+      "text": "# TODO: fuse this with the preprocess",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/moe/moe_runner/deep_gemm.py",
+      "line": 27,
+      "text": "# TODO(kaixih@nvidia): ideally we should merge this logic into",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/quantization/fp8.py",
+      "line": 1030,
+      "text": "# TODO(cwan): refactor other backends",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/nemotron_h.py",
+      "line": 184,
+      "text": "use_triton_causal_conv=True,  # TODO: investigate need of `use_triton_causal_conv`",
+      "type": "TODO"
+    }
+  ],
+  "2025-10-09": [
+    {
+      "file": "sgl-router/src/routers/openai/router.rs",
+      "line": 539,
+      "text": "// TODO: this validation logic should move the right place, also we need a proper error message module",
+      "type": "TODO"
+    },
+    {
+      "file": "sgl-router/src/routers/openai/conversations.rs",
+      "line": 37,
+      "text": "// TODO: The validation should be done in the right place",
+      "type": "TODO"
+    },
+    {
+      "file": "sgl-router/src/routers/openai/conversations.rs",
+      "line": 713,
+      "text": "// TODO: Process `include` parameter when implemented",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/moe/router.py",
+      "line": 310,
+      "text": "# TODO(ch-wan): temporary workaround for dp attention. We should support masked",
+      "type": "TODO"
+    }
+  ],
+  "2025-10-11": [
+    {
+      "file": "sgl-kernel/tests/test_per_token_group_quant_8bit.py",
+      "line": 63,
+      "text": "# TODO support more",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/mem_cache/common.py",
+      "line": 92,
+      "text": "# TODO: some tensors can be reused for ForwardBatchInfo (e.g., extend_lens, cumsum_start)",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/deepseek_v2.py",
+      "line": 1582,
+      "text": "# TODO fix the per_tensor_quant_mla_fp8 for cublas 12.9",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/model_loader/loader.py",
+      "line": 1821,
+      "text": "dataset_name=\"cnn_dailymail\",  # TODO: Consider making this configurable",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/model_loader/loader.py",
+      "line": 1823,
+      "text": "batch_size=36,  # TODO: Consider making this configurable",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/model_loader/loader.py",
+      "line": 1824,
+      "text": "num_samples=512,  # TODO: Consider making this configurable",
+      "type": "TODO"
+    }
+  ],
+  "2025-10-12": [
+    {
+      "file": "python/sglang/global_config.py",
+      "line": 3,
+      "text": "# FIXME: deprecate this file and move all usage to sglang.srt.environ or sglang.__init__.py",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/model_executor/piecewise_cuda_graph_runner.py",
+      "line": 256,
+      "text": "# TODO(yuwei): support return logprob",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/model_executor/piecewise_cuda_graph_runner.py",
+      "line": 486,
+      "text": "# TODO(Yuwei): support PP Support",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/model_executor/model_runner.py",
+      "line": 340,
+      "text": "# TODO(yuwei): support Non-Standard GQA",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/model_executor/model_runner.py",
+      "line": 1537,
+      "text": "# TODO(yuwei): support PP",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/speculative/eagle_info_v2.py",
+      "line": 404,
+      "text": "# FIXME(lsyin): remove this duplicate code",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/managers/scheduler.py",
+      "line": 2224,
+      "text": "# FIXME(lsyin): tmp code for eagle v2",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/managers/scheduler.py",
+      "line": 2233,
+      "text": "#     # FIXME(lsyin): remove the allocate_lens in EagleDraftInput",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/managers/overlap_utils.py",
+      "line": 103,
+      "text": "# TODO(lsyin): write future indices into spec_info.future_indices",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/managers/overlap_utils.py",
+      "line": 106,
+      "text": "# FIXME(lsyin): No future exists, only for prefill batch, not compatible with mixed mode",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/managers/scheduler_output_processor_mixin.py",
+      "line": 298,
+      "text": "# FIXME(lsyin): fix the messy logic here",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/managers/schedule_batch.py",
+      "line": 1485,
+      "text": "# FIXME: finally deprecate is_v2_eagle",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/managers/schedule_batch.py",
+      "line": 1563,
+      "text": "# FIXME(lsyin): used here to get the correct seq_lens",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/managers/tp_worker.py",
+      "line": 341,
+      "text": "# FIXME(lsyin): maybe remove skip_attn_backend_init in forward_batch_generation,",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/managers/tp_worker.py",
+      "line": 350,
+      "text": "# FIXME(lsyin): unify the interface of forward_batch",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/compilation/compilation_config.py",
+      "line": 6,
+      "text": "# TODO(Yuwei): support better compile config support",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/compilation/backend.py",
+      "line": 112,
+      "text": "# TODO(Yuwei): support cache loading",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/compilation/compiler_interface.py",
+      "line": 347,
+      "text": "# TODO(zou3519): we're going to replace this all with",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/compilation/cuda_piecewise_backend.py",
+      "line": 26,
+      "text": "# TODO(yuwei): introduce weak_ref_tensor from sgl_kernel",
+      "type": "TODO"
+    }
+  ],
+  "2025-10-13": [
+    {
+      "file": "test/srt/ep/test_eplb.py",
+      "line": 54,
+      "text": "# TODO pr-chain: enable later",
+      "type": "TODO"
+    },
+    {
+      "file": "test/srt/ep/test_eplb.py",
+      "line": 56,
+      "text": "# TODO auto determine these flags",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/model_executor/model_runner.py",
+      "line": 299,
+      "text": "# FIXME: hacky set `use_mla_backend`",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/models/bailing_moe.py",
+      "line": 207,
+      "text": "# TODO global_server_args.ep_num_redundant_experts is used for eplb, not supported now",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/managers/scheduler.py",
+      "line": 2281,
+      "text": "# TODO(lsyin): make the delayed sample a default behavior after",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/configs/model_config.py",
+      "line": 93,
+      "text": "] = None,  # TODO: remove this, it is not a model config",
+      "type": "TODO"
+    }
+  ],
+  "2025-10-14": [
+    {
+      "file": "python/sglang/srt/lora/eviction_policy.py",
+      "line": 68,
+      "text": "BASE_MODEL_UID = None  # TODO: Replace with special UID constant",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/lora/eviction_policy.py",
+      "line": 110,
+      "text": "BASE_MODEL_UID = None  # TODO: Replace with special UID constant",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/lora/mem_pool.py",
+      "line": 209,
+      "text": "# TODO (lifuhuang): we might consider supporting pinning base model (uid == None) in the future.",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/speculative/eagle_utils.py",
+      "line": 102,
+      "text": "# TODO: make them torch.empty and fuse them into `sgl_build_tree_kernel`",
+      "type": "TODO"
+    }
+  ],
+  "2025-10-15": [
+    {
+      "file": "python/sglang/srt/managers/schedule_batch.py",
+      "line": 1456,
+      "text": "# TODO (csy): for preempted requests, we may want to insert into the tree",
+      "type": "TODO"
+    }
+  ],
+  "2025-10-16": [
+    {
+      "file": "scripts/ci/npu_ci_install_dependency.sh",
+      "line": 69,
+      "text": "### Install CustomOps (TODO: to be removed once merged into sgl-kernel-npu)",
+      "type": "TODO"
+    },
+    {
+      "file": "sgl-router/src/protocols/rerank.rs",
+      "line": 13,
+      "text": "/// TODO: Create timestamp should not be in protocol layer",
+      "type": "TODO"
+    },
+    {
+      "file": "sgl-router/src/protocols/common.rs",
+      "line": 175,
+      "text": "mode: String, // \"auto\" | \"required\" TODO: need validation",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/environ.py",
+      "line": 200,
+      "text": "# vLLM dependencies (TODO: they have been deprecated, we can remove them safely)",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/layers/rotary_embedding.py",
+      "line": 298,
+      "text": "# TODO: make a wrapper, and XPU will implement this kernel later.",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/mem_cache/memory_pool.py",
+      "line": 150,
+      "text": "# TODO(shangming): abstract custom allocator class for more backends",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/mem_cache/memory_pool.py",
+      "line": 433,
+      "text": "# TODO(shangming): abstract custom allocator class for more backends",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/mem_cache/memory_pool.py",
+      "line": 816,
+      "text": "# TODO support pp?",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/mem_cache/memory_pool.py",
+      "line": 942,
+      "text": "# TODO(shangming): abstract custom allocator class for more backends",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/qwen3_omni_moe.py",
+      "line": 563,
+      "text": "# [TODO] Skip layers that are on other devices (check if sglang has a similar function)",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/models/qwen3_vl.py",
+      "line": 631,
+      "text": "# TODO: make it more elegant",
+      "type": "TODO"
+    }
+  ],
+  "2025-10-17": [
+    {
+      "file": "python/sglang/srt/speculative/eagle_info_v2.py",
+      "line": 86,
+      "text": "# TODO(lsyin): implement over-allocation",
+      "type": "TODO"
+    },
+    {
+      "file": "python/sglang/srt/speculative/eagle_info_v2.py",
+      "line": 130,
+      "text": "# FIXME(lsyin): make this sync optional",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/speculative/eagle_worker_v2.py",
+      "line": 108,
+      "text": "pp_rank=0,  # FIXME",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/managers/scheduler.py",
+      "line": 218,
+      "text": "# FIXME(lsyin): maybe move to a better place?",
+      "type": "FIXME"
+    },
+    {
+      "file": "python/sglang/srt/managers/schedule_batch.py",
+      "line": 1493,
+      "text": "# TODO(spec-v2): all v2 spec should go through this path",
+      "type": "TODO"
+    }
+  ]
+}
