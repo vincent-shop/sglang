@@ -11,6 +11,7 @@ from torchvision.transforms import InterpolationMode
 
 from sglang.srt.environ import envs
 from sglang.srt.layers.rotary_embedding import MRotaryEmbedding
+from sglang.srt.managers.schedule_batch import Modality, MultimodalDataItem
 from sglang.srt.models.qwen2_5_vl import Qwen2_5_VLForConditionalGeneration
 from sglang.srt.models.qwen2_vl import Qwen2VLForConditionalGeneration
 from sglang.srt.models.qwen3_omni_moe import Qwen3OmniMoeForConditionalGeneration
@@ -258,6 +259,81 @@ class QwenVLImageProcessor(SGLangBaseProcessor):
             audio_token_id=self.audio_token_id,
         ).build(_processor)
 
+    def _slice_model_field(self, value, index: int, total: int):
+        if value is None:
+            return None
+        if isinstance(value, torch.Tensor):
+            if value.dim() >= 1 and value.size(0) == total:
+                return value[index : index + 1].clone()
+            return value
+        if isinstance(value, list):
+            if len(value) == total:
+                return [value[index]]
+            return value
+        if isinstance(value, tuple):
+            if len(value) == total:
+                return (value[index],)
+            return value
+        return value
+
+    def _expand_image_items(
+        self, mm_items: List[MultimodalDataItem]
+    ) -> List[MultimodalDataItem]:
+        expanded_items: List[MultimodalDataItem] = []
+        spatial_merge_size = getattr(
+            self.hf_config.vision_config, "spatial_merge_size", 1
+        )
+        spatial_merge_unit = spatial_merge_size * spatial_merge_size
+
+        for item in mm_items:
+            if not item.is_image():
+                expanded_items.append(item)
+                continue
+
+            grid_thw = getattr(item, "image_grid_thw", None)
+            feature = item.feature
+            if (
+                grid_thw is None
+                or not isinstance(grid_thw, torch.Tensor)
+                or grid_thw.dim() != 2
+                or grid_thw.size(0) <= 1
+                or not isinstance(feature, torch.Tensor)
+                or feature.dim() != 2
+            ):
+                expanded_items.append(item)
+                continue
+
+            per_image_tokens = []
+            for grid in grid_thw:
+                t, h, w = [int(val) for val in grid.tolist()]
+                per_image_tokens.append(t * h * w * spatial_merge_unit)
+
+            if sum(per_image_tokens) != feature.size(0):
+                expanded_items.append(item)
+                continue
+
+            cursor = 0
+            total_images = grid_thw.size(0)
+            for idx, token_count in enumerate(per_image_tokens):
+                next_cursor = cursor + token_count
+                feature_slice = feature[cursor:next_cursor].clone()
+                cursor = next_cursor
+
+                model_specific_data = {}
+                for key, value in item.model_specific_data.items():
+                    model_specific_data[key] = self._slice_model_field(
+                        value, idx, total_images
+                    )
+
+                new_item = MultimodalDataItem(
+                    modality=item.modality,
+                    feature=feature_slice,
+                    model_specific_data=model_specific_data,
+                )
+                expanded_items.append(new_item)
+
+        return expanded_items
+
     async def process_mm_data_async(
         self,
         image_data: List[Union[str, bytes]],
@@ -287,6 +363,7 @@ class QwenVLImageProcessor(SGLangBaseProcessor):
         mm_items, input_ids, ret = self.process_and_combine_mm_data(
             base_output, self.mm_tokens
         )
+        mm_items = self._expand_image_items(mm_items)
 
         audio_feature_lengths = None
 
