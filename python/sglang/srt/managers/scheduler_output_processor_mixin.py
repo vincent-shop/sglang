@@ -272,8 +272,12 @@ class SchedulerOutputProcessorMixin:
                         indices_to_free = batch.out_cache_loc[i : i + 1]
                 else:
                     if batch.spec_algorithm.is_eagle():
-                        # TODO(spec-v2): support eagle with page_size > 1
-                        raise NotImplementedError()
+                        start_p = int(batch.seq_lens_cpu[i].item()) + accept_lens_list[i]
+                        end_p = allocate_lens_list[i]
+                        if end_p > start_p:
+                            indices_to_free = self.req_to_token_pool.req_to_token[
+                                req.req_pool_idx
+                            ][start_p:end_p]
                     else:
                         if (
                             len(req.origin_input_ids) + len(req.output_ids) - 1

@@ -10,7 +10,11 @@ import triton.language as tl
 
 from sglang.srt.layers.logits_processor import LogitsProcessorOutput
 from sglang.srt.managers.schedule_batch import ModelWorkerBatch, ScheduleBatch
-from sglang.srt.mem_cache.common import alloc_token_slots
+from sglang.srt.mem_cache.common import (
+    alloc_paged_token_slots_extend,
+    alloc_token_slots,
+    get_last_loc,
+)
 from sglang.srt.mem_cache.memory_pool import ReqToTokenPool
 from sglang.srt.model_executor.forward_batch_info import (
     CaptureHiddenMode,
@@ -21,7 +25,10 @@ from sglang.srt.model_executor.model_runner import ModelRunner
 from sglang.srt.server_args import get_global_server_args
 from sglang.srt.speculative.spec_utils import (
     SIMULATE_ACC_LEN,
+    assign_draft_cache_locs,
     generate_simulated_accept_index,
+    get_last_loc_large_page_size_large_top_k,
+    get_last_loc_large_page_size_top_k_1,
 )
 from sglang.srt.utils.common import fast_topk, is_cuda, is_hip, next_power_of_2
 
@@ -77,25 +84,85 @@ class EagleDraftInputV2Mixin:
         from sglang.srt.speculative.spec_utils import assign_req_to_token_pool
 
         bs = batch.batch_size()
+        server_args = get_global_server_args()
+        page_size = server_args.page_size
+        topk = server_args.speculative_eagle_topk
+        num_steps = server_args.speculative_num_steps
 
         # TODO(lsyin): implement over-allocation
         # Now seq_lens and allocate_lens are correct
         batch.maybe_wait_verify_done()
 
-        new_allocate_lens = batch.seq_lens + self.ALLOC_LEN_PER_DECODE
-        num_needed_tokens = (new_allocate_lens - self.allocate_lens).sum().item()
-        out_cache_loc = alloc_token_slots(batch.tree_cache, num_needed_tokens)
+        if self.allocate_lens is None:
+            self.allocate_lens = batch.seq_lens.clone()
 
-        assign_req_to_token_pool[(bs,)](
-            batch.req_pool_indices,
-            batch.req_to_token_pool.req_to_token,
-            self.allocate_lens,
-            new_allocate_lens,
-            out_cache_loc,
-            batch.req_to_token_pool.req_to_token.shape[1],
-            next_power_of_2(bs),
-        )
-        self.allocate_lens = new_allocate_lens
+        if page_size == 1:
+            new_allocate_lens = batch.seq_lens + self.ALLOC_LEN_PER_DECODE
+            num_needed_tokens = (new_allocate_lens - self.allocate_lens).sum().item()
+            if num_needed_tokens > 0:
+                out_cache_loc = alloc_token_slots(batch.tree_cache, num_needed_tokens)
+                assign_req_to_token_pool[(bs,)](
+                    batch.req_pool_indices,
+                    batch.req_to_token_pool.req_to_token,
+                    self.allocate_lens,
+                    new_allocate_lens,
+                    out_cache_loc,
+                    batch.req_to_token_pool.req_to_token.shape[1],
+                    next_power_of_2(bs),
+                )
+            self.allocate_lens = new_allocate_lens
+        else:
+            if topk == 1:
+                _, seq_lens_required, _ = get_last_loc_large_page_size_top_k_1(
+                    batch.req_to_token_pool.req_to_token,
+                    batch.req_pool_indices,
+                    batch.seq_lens,
+                    num_steps,
+                )
+            else:
+                (
+                    _,
+                    seq_lens_required,
+                    _,
+                    _,
+                    _,
+                ) = get_last_loc_large_page_size_large_top_k(
+                    batch.req_to_token_pool.req_to_token,
+                    batch.req_pool_indices,
+                    batch.seq_lens,
+                    num_steps,
+                    topk,
+                    page_size,
+                )
+
+            new_allocate_lens = torch.maximum(self.allocate_lens, seq_lens_required)
+            delta = new_allocate_lens - self.allocate_lens
+            extend_num_tokens = delta.sum().item()
+            if extend_num_tokens > 0:
+                last_loc = get_last_loc(
+                    batch.req_to_token_pool.req_to_token,
+                    batch.req_pool_indices,
+                    self.allocate_lens,
+                )
+                out_cache_loc = alloc_paged_token_slots_extend(
+                    batch.tree_cache,
+                    self.allocate_lens,
+                    self.allocate_lens.cpu(),
+                    new_allocate_lens,
+                    new_allocate_lens.cpu(),
+                    last_loc,
+                    extend_num_tokens,
+                )
+                assign_req_to_token_pool[(bs,)](
+                    batch.req_pool_indices,
+                    batch.req_to_token_pool.req_to_token,
+                    self.allocate_lens,
+                    new_allocate_lens,
+                    out_cache_loc,
+                    batch.req_to_token_pool.req_to_token.shape[1],
+                    next_power_of_2(bs),
+                )
+            self.allocate_lens = new_allocate_lens
 
         # FIXME(lsyin): make this sync optional
         batch.seq_lens_cpu = batch.seq_lens.cpu()
@@ -112,22 +179,51 @@ class EagleDraftInputV2Mixin:
     ):
         bs = len(batch.seq_lens)
 
-        # Assign cache locations
         batch.out_cache_loc = torch.empty(
             (bs * topk * num_steps,),
             dtype=torch.int64,
             device=batch.input_ids.device,
         )
-        # FIXME(lsyin): align with the default code path
-        assign_draft_cache_locs_page_size_1[(bs,)](
-            batch.req_pool_indices,
-            req_to_token_pool.req_to_token,
-            batch.seq_lens,
-            batch.out_cache_loc,
-            req_to_token_pool.req_to_token.shape[1],
-            topk,
-            num_steps,
-        )
+        page_size = get_global_server_args().page_size
+        if page_size == 1:
+            assign_draft_cache_locs_page_size_1[(bs,)](
+                batch.req_pool_indices,
+                req_to_token_pool.req_to_token,
+                batch.seq_lens,
+                batch.out_cache_loc,
+                req_to_token_pool.req_to_token.shape[1],
+                topk,
+                num_steps,
+            )
+        else:
+            (
+                _,
+                _,
+                _,
+                num_new_pages_per_topk,
+                extend_lens,
+            ) = get_last_loc_large_page_size_large_top_k(
+                req_to_token_pool.req_to_token,
+                batch.req_pool_indices,
+                batch.seq_lens,
+                num_steps,
+                topk,
+                page_size,
+            )
+            assign_draft_cache_locs[(bs,)](
+                batch.req_pool_indices,
+                req_to_token_pool.req_to_token,
+                batch.seq_lens,
+                extend_lens,
+                num_new_pages_per_topk,
+                batch.out_cache_loc,
+                req_to_token_pool.req_to_token.shape[1],
+                topk,
+                num_steps,
+                page_size,
+                next_power_of_2(bs),
+                next_power_of_2(num_steps),
+            )
 
         # Get a forward batch
         batch.capture_hidden_mode = CaptureHiddenMode.LAST
@@ -224,7 +320,7 @@ class EagleVerifyInputV2Mixin:
 
         candidates = self.draft_token.reshape(bs, self.draft_token_num)
         predict = torch.zeros(
-            (bs * (self.spec_steps + 1),), dtype=torch.int32, device=device
+            (bs * self.draft_token_num,), dtype=torch.int32, device=device
         )
         accept_index = torch.full(
             (bs, self.spec_steps + 1), -1, dtype=torch.int32, device=device

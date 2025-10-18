@@ -44,6 +44,8 @@ from sglang.srt.speculative.spec_utils import (
     draft_tp_context,
     fast_topk,
     generate_token_bitmask,
+    get_last_loc_large_page_size_large_top_k,
+    get_last_loc_large_page_size_top_k_1,
     load_token_map,
     select_top_k_tokens,
 )
@@ -939,48 +941,3 @@ class EAGLEWorker(TpModelWorker):
         draft_input.topk_p, draft_input.topk_index = fast_topk(probs, self.topk, dim=-1)
         draft_input.hidden_states = logits_output.hidden_states
 
-
-@torch.compile(dynamic=True)
-def get_last_loc_large_page_size_top_k_1(
-    req_to_token: torch.Tensor,
-    req_pool_indices: torch.Tensor,
-    seq_lens,
-    speculative_num_steps: int,
-):
-    prefix_lens = seq_lens
-    seq_lens = prefix_lens + speculative_num_steps
-    last_loc = get_last_loc(
-        req_to_token,
-        req_pool_indices,
-        prefix_lens,
-    )
-    return prefix_lens, seq_lens, last_loc
-
-
-# Disable torch.compile for this function because it will be
-# even slower.
-# @torch.compile(dynamic=True)
-def get_last_loc_large_page_size_large_top_k(
-    req_to_token: torch.Tensor,
-    req_pool_indices: torch.Tensor,
-    seq_lens: torch.Tensor,
-    speculative_num_steps: int,
-    topk: int,
-    page_size: int,
-):
-    prefix_lens = seq_lens
-    last_page_lens = prefix_lens % page_size
-    num_new_pages_per_topk = (
-        last_page_lens + speculative_num_steps + page_size - 1
-    ) // page_size
-    seq_lens = prefix_lens // page_size * page_size + num_new_pages_per_topk * (
-        page_size * topk
-    )
-    extend_lens = seq_lens - prefix_lens
-    last_loc = get_last_loc(
-        req_to_token,
-        req_pool_indices,
-        prefix_lens,
-    )
-
-    return prefix_lens, seq_lens, last_loc, num_new_pages_per_topk, extend_lens
