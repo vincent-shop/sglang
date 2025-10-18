@@ -1263,10 +1263,10 @@ class ServerArgs:
             if (
                 self.speculative_eagle_topk > 1
                 and self.page_size > 1
-                and self.attention_backend != "flashinfer"
+                and self.attention_backend not in {"flashinfer", "triton"}
             ):
                 raise ValueError(
-                    "speculative_eagle_topk > 1 with page_size > 1 is unstable and produces incorrect results for paged attention backends. This combination is only supported for the 'flashinfer' backend."
+                    "speculative_eagle_topk > 1 with page_size > 1 is only supported for 'flashinfer' and 'triton' backends."
                 )
 
         if self.speculative_algorithm == "NGRAM":

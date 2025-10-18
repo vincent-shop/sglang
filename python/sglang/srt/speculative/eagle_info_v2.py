@@ -25,6 +25,7 @@ from sglang.srt.model_executor.model_runner import ModelRunner
 from sglang.srt.server_args import get_global_server_args
 from sglang.srt.speculative.spec_utils import (
     SIMULATE_ACC_LEN,
+    assign_draft_cache_locs,
     generate_simulated_accept_index,
 )
 from sglang.srt.utils.common import fast_topk, is_cuda, is_hip, next_power_of_2
@@ -88,6 +89,9 @@ class EagleDraftInputV2Mixin:
 
         page_size = batch.token_to_kv_pool_allocator.page_size
 
+        if self.allocate_lens is None:
+            self.allocate_lens = batch.seq_lens.clone()
+
         if page_size == 1:
             new_allocate_lens = batch.seq_lens + self.ALLOC_LEN_PER_DECODE
             num_needed_tokens = (new_allocate_lens - self.allocate_lens).sum().item()
@@ -137,23 +141,71 @@ class EagleDraftInputV2Mixin:
         num_steps: int,
     ):
         bs = len(batch.seq_lens)
+        page_size = batch.token_to_kv_pool_allocator.page_size
 
-        # Assign cache locations
-        batch.out_cache_loc = torch.empty(
-            (bs * topk * num_steps,),
-            dtype=torch.int64,
-            device=batch.input_ids.device,
-        )
-        # FIXME(lsyin): align with the default code path
-        assign_draft_cache_locs_page_size_1[(bs,)](
-            batch.req_pool_indices,
-            req_to_token_pool.req_to_token,
-            batch.seq_lens,
-            batch.out_cache_loc,
-            req_to_token_pool.req_to_token.shape[1],
-            topk,
-            num_steps,
-        )
+        if page_size > 1 and topk > 1:
+            prefix_lens = batch.seq_lens
+            last_page_lens = prefix_lens % page_size
+            num_new_pages_per_topk = (
+                last_page_lens + num_steps + page_size - 1
+            ) // page_size
+            seq_lens_aligned = (
+                prefix_lens // page_size * page_size
+                + num_new_pages_per_topk * (page_size * topk)
+            )
+            extend_lens = seq_lens_aligned - prefix_lens
+            prefix_lens_cpu = prefix_lens.cpu()
+            seq_lens_aligned_cpu = seq_lens_aligned.cpu()
+            extend_num_tokens = (
+                torch.sum(seq_lens_aligned_cpu - prefix_lens_cpu).item()
+            )
+            last_loc = get_last_loc(
+                batch.req_to_token_pool.req_to_token,
+                batch.req_pool_indices,
+                prefix_lens,
+            )
+            out_cache_loc, state = alloc_paged_token_slots_extend(
+                batch.tree_cache,
+                prefix_lens,
+                prefix_lens_cpu,
+                seq_lens_aligned,
+                seq_lens_aligned_cpu,
+                last_loc,
+                extend_num_tokens,
+                backup_state=True,
+            )
+            assign_draft_cache_locs[(bs,)](
+                batch.req_pool_indices,
+                batch.req_to_token_pool.req_to_token,
+                batch.seq_lens,
+                extend_lens,
+                num_new_pages_per_topk,
+                out_cache_loc,
+                batch.req_to_token_pool.req_to_token.shape[1],
+                topk,
+                num_steps,
+                page_size,
+                next_power_of_2(bs),
+                next_power_of_2(num_steps),
+            )
+            out_cache_loc = out_cache_loc[: bs * topk * num_steps]
+            batch.out_cache_loc = out_cache_loc
+            draft_model_runner.token_to_kv_pool_allocator.restore_state(state)
+        else:
+            batch.out_cache_loc = torch.empty(
+                (bs * topk * num_steps,),
+                dtype=torch.int64,
+                device=batch.input_ids.device,
+            )
+            assign_draft_cache_locs_page_size_1[(bs,)](
+                batch.req_pool_indices,
+                req_to_token_pool.req_to_token,
+                batch.seq_lens,
+                batch.out_cache_loc,
+                req_to_token_pool.req_to_token.shape[1],
+                topk,
+                num_steps,
+            )
 
         # Get a forward batch
         batch.capture_hidden_mode = CaptureHiddenMode.LAST
@@ -174,6 +226,8 @@ class EagleDraftInputV2Mixin:
 
         batch.spec_info = self
         batch.input_ids = predict
+        if self.hidden_states is not None and self.hidden_states.shape[0] * num_draft_tokens == predict.shape[0]:
+            self.hidden_states = self.hidden_states.repeat_interleave(num_draft_tokens, dim=0)
         batch.seq_lens = batch.seq_lens + num_draft_tokens
         batch.seq_lens_cpu = batch.seq_lens_cpu + num_draft_tokens
         batch.seq_lens_sum += extend_num_tokens
