@@ -254,6 +254,7 @@ class EagleDraftInputV2Mixin:
         batch.seq_lens_sum += extend_num_tokens
         batch.extend_seq_lens = [num_draft_tokens for _ in range(bs)]
         batch.extend_prefix_lens = prev_seq_lens_cpu.tolist()
+        batch.extend_prefix_lens_cpu = prev_seq_lens_cpu
         batch.extend_num_tokens = extend_num_tokens
         batch.capture_hidden_mode = CaptureHiddenMode.FULL
         batch.forward_mode = ForwardMode.DRAFT_EXTEND_V2
