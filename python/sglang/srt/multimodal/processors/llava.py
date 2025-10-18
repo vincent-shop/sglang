@@ -2,6 +2,7 @@ import asyncio
 from typing import List, Optional, Union
 
 import numpy as np
+import torch
 from transformers.models.auto.processing_auto import (
     PROCESSOR_MAPPING_NAMES as HF_MAPPING_NAMES,
 )
@@ -159,8 +160,37 @@ class LlavaImageProcessor(BaseMultimodalProcessor):
             elif request_obj.modalities[0] == "video":
                 modality = Modality.VIDEO
 
-        return {
-            "mm_items": [
+        if isinstance(pixel_values, (np.ndarray, torch.Tensor)) and pixel_values.ndim == 3:
+            pixel_values = pixel_values[None, ...]
+
+        if modality == Modality.MULTI_IMAGES and isinstance(pixel_values, (np.ndarray, torch.Tensor)):
+            mm_items = [
+                MultimodalDataItem(
+                    feature=pixel_values[i : i + 1],
+                    model_specific_data={
+                        "image_sizes": [image_sizes[i]],
+                    },
+                    modality=Modality.MULTI_IMAGES,
+                )
+                for i in range(len(image_sizes))
+            ]
+        elif modality == Modality.MULTI_IMAGES:
+            mm_items = []
+            for i in range(len(image_sizes)):
+                value = pixel_values[i]
+                if isinstance(value, (np.ndarray, torch.Tensor)) and getattr(value, "ndim", 0) == 3:
+                    value = value[None, ...]
+                mm_items.append(
+                    MultimodalDataItem(
+                        feature=value,
+                        model_specific_data={
+                            "image_sizes": [image_sizes[i]],
+                        },
+                        modality=Modality.MULTI_IMAGES,
+                    )
+                )
+        else:
+            mm_items = [
                 MultimodalDataItem(
                     feature=pixel_values,
                     model_specific_data={
@@ -168,7 +198,10 @@ class LlavaImageProcessor(BaseMultimodalProcessor):
                     },
                     modality=modality,
                 )
-            ],
+            ]
+
+        return {
+            "mm_items": mm_items,
         }
 
 

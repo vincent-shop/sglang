@@ -120,6 +120,17 @@ class LlavaBaseForCausalLM(nn.Module):
             offset_list.append(offset)
             image_inputs.image_pad_len.append(new_image_feature_len)
 
+        cursor = 0
+        for item in image_inputs.mm_items:
+            size_list = flatten_nested_list([item.image_sizes])
+            item_offsets = []
+            for j in range(len(size_list)):
+                start = offset_list[cursor + j]
+                length = image_inputs.image_pad_len[cursor + j]
+                item_offsets.append((start, start + length - 1))
+            item.offsets = item_offsets
+            cursor += len(size_list)
+
         image_inputs.image_offsets = offset_list
         return input_ids
 

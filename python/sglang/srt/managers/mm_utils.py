@@ -296,6 +296,10 @@ def get_embedding_hash(embedding_items: List[MultimodalDataItem]) -> int:
     return hash(tuple(hash_list))
 
 
+def get_mm_item_cache_key(item: MultimodalDataItem) -> int:
+    return hash((item.modality, item.hash))
+
+
 def get_embedding_chunk(
     embedding: torch.Tensor,
     extend_prefix_len: int,
@@ -380,21 +384,30 @@ def _get_chunked_prefill_embedding(
         embedding_items_per_req = embedding_items[items_size[i] : items_size[i + 1]]
         items_offset = items_offset_list[i]
         assert items_offset is not None, items_offset
-        embedding_items_hash = get_embedding_hash(embedding_items_per_req)
         # if all items has been prefixed, we do not need to calculate embedding
         if all([offset_end < prefix_length[i] for _, offset_end in items_offset]):
             continue
-        embedding_per_req = embedding_cache.get(embedding_items_hash)
-        if embedding_per_req is None:
-            embedding_per_req = data_embedding_func(embedding_items_per_req)
-            if not embedding_cache.put(embedding_items_hash, embedding_per_req):
-                print_warning_once(
-                    "Multimodal embedding cache is full. This typically occurs when a single "
-                    "embedding exceeds the cache size limit. Consider increasing the "
-                    "`SGLANG_VLM_CACHE_SIZE_MB` environment variable or reducing the input "
-                    "embedding size."
-                )
-
+        cache = embedding_cache
+        per_item_embeddings: List[torch.Tensor] = []
+        for item in embedding_items_per_req:
+            key = get_mm_item_cache_key(item)
+            cached_embedding = cache.get(key) if cache is not None else None
+            if cached_embedding is None:
+                embedding = data_embedding_func([item])
+                embedding = embedding.reshape(-1, embedding.shape[-1])
+                if cache is not None and not cache.put(key, embedding):
+                    print_warning_once(
+                        "Multimodal embedding cache is full. This typically occurs when a single "
+                        "embedding exceeds the cache size limit. Consider increasing the "
+                        "`SGLANG_VLM_CACHE_SIZE_MB` environment variable or reducing the input "
+                        "embedding size."
+                    )
+            else:
+                embedding = cached_embedding.reshape(-1, cached_embedding.shape[-1])
+            per_item_embeddings.append(embedding)
+        if len(per_item_embeddings) == 0:
+            continue
+        embedding_per_req = torch.concat(per_item_embeddings, dim=0)
         embedding_per_req_chunk, _, _ = get_embedding_chunk(
             embedding=embedding_per_req,
             extend_prefix_len=prefix_length[i],
@@ -538,9 +551,14 @@ def embed_mm_inputs(
     # 2. Get multimodal embedding separately
     # Try get mm embedding if any
     for modality in Modality.all():
-        items = [
-            item for item in item_flatten_list if item.is_modality(modality=modality)
-        ]
+        if modality == Modality.IMAGE:
+            items = [item for item in item_flatten_list if item.is_image()]
+        elif modality == Modality.VIDEO:
+            items = [item for item in item_flatten_list if item.is_video()]
+        elif modality == Modality.AUDIO:
+            items = [item for item in item_flatten_list if item.is_audio()]
+        else:
+            items = []
         embedder = (
             None
             if data_embedding_func_mapping is None
@@ -560,11 +578,14 @@ def embed_mm_inputs(
             items_size = torch.zeros(len(mm_inputs_list) + 1, dtype=int)
             items_offsets = []
             for i, mm_inputs in enumerate(mm_inputs_list):
-                mm_items = [
-                    item
-                    for item in mm_inputs.mm_items
-                    if item.is_modality(modality=modality)
-                ]
+                if modality == Modality.IMAGE:
+                    mm_items = [item for item in mm_inputs.mm_items if item.is_image()]
+                elif modality == Modality.VIDEO:
+                    mm_items = [item for item in mm_inputs.mm_items if item.is_video()]
+                elif modality == Modality.AUDIO:
+                    mm_items = [item for item in mm_inputs.mm_items if item.is_audio()]
+                else:
+                    mm_items = []
                 items_size[i + 1] = len(mm_items)
                 items_offsets.append(
                     flatten_nested_list([item.offsets for item in mm_items])
