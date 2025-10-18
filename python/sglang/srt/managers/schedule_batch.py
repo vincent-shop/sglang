@@ -984,6 +984,10 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
     # spec_info: Optional[SpecInput] = None
     spec_info: Optional[SpecInput] = None
 
+    token_to_kv_pool_allocator: Optional[BaseTokenToKVPoolAllocator] = None
+    req_to_token_pool: Optional[ReqToTokenPool] = None
+    tree_cache: Optional[BasePrefixCache] = None
+
     # Whether to return hidden states
     return_hidden_states: bool = False
 
@@ -1737,6 +1741,9 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
             ),
             extend_input_logprob_token_ids=self.extend_input_logprob_token_ids,
             is_prefill_only=self.is_prefill_only,
+            token_to_kv_pool_allocator=self.token_to_kv_pool_allocator,
+            req_to_token_pool=self.req_to_token_pool,
+            tree_cache=self.tree_cache,
         )
 
     def copy(self):
@@ -1838,6 +1845,10 @@ class ModelWorkerBatch:
     spec_algorithm: SpeculativeAlgorithm = None
 
     spec_info: Optional[SpecInput] = None
+
+    token_to_kv_pool_allocator: Optional[BaseTokenToKVPoolAllocator] = None
+    req_to_token_pool: Optional[ReqToTokenPool] = None
+    tree_cache: Optional[BasePrefixCache] = None
 
     # If set, the output of the batch contains the hidden states of the run.
     capture_hidden_mode: CaptureHiddenMode = None

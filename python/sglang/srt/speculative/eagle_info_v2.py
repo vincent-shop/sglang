@@ -190,7 +190,7 @@ class EagleDraftInputV2Mixin:
             )
             out_cache_loc = out_cache_loc[: bs * topk * num_steps]
             batch.out_cache_loc = out_cache_loc
-            draft_model_runner.token_to_kv_pool_allocator.restore_state(state)
+            batch.token_to_kv_pool_allocator.restore_state(state)
         else:
             batch.out_cache_loc = torch.empty(
                 (bs * topk * num_steps,),
@@ -221,21 +221,72 @@ class EagleDraftInputV2Mixin:
         num_draft_tokens: int,
         draft_model_runner: Any,
     ):
-        seq_lens_cpu_ = batch.seq_lens_cpu
-        extend_num_tokens = len(batch.seq_lens) * num_draft_tokens
+        prev_seq_lens = batch.seq_lens.clone()
+        prev_seq_lens_cpu = (
+            batch.seq_lens_cpu.clone()
+            if batch.seq_lens_cpu is not None
+            else batch.seq_lens.cpu()
+        )
+        bs = len(prev_seq_lens)
+
+        if bs > 0 and predict.numel() >= bs:
+            tokens_per_seq = predict.numel() // bs
+            predict = predict.reshape(bs, tokens_per_seq)
+            if tokens_per_seq < num_draft_tokens:
+                raise ValueError(
+                    f"Expected at least {num_draft_tokens} tokens per sequence for draft extend, got {tokens_per_seq}."
+                )
+            extend_input_ids = predict[:, :num_draft_tokens].contiguous().view(-1)
+        else:
+            extend_input_ids = predict
+
+        extend_num_tokens = extend_input_ids.numel()
 
         batch.spec_info = self
-        batch.input_ids = predict
-        if self.hidden_states is not None and self.hidden_states.shape[0] * num_draft_tokens == predict.shape[0]:
+        batch.input_ids = extend_input_ids
+        if (
+            self.hidden_states is not None
+            and self.hidden_states.shape[0] * num_draft_tokens == extend_input_ids.shape[0]
+        ):
             self.hidden_states = self.hidden_states.repeat_interleave(num_draft_tokens, dim=0)
-        batch.seq_lens = batch.seq_lens + num_draft_tokens
-        batch.seq_lens_cpu = batch.seq_lens_cpu + num_draft_tokens
+        batch.seq_lens = prev_seq_lens + num_draft_tokens
+        batch.seq_lens_cpu = prev_seq_lens_cpu + num_draft_tokens
         batch.seq_lens_sum += extend_num_tokens
-        batch.extend_seq_lens = [num_draft_tokens for _ in range(len(batch.seq_lens))]
-        batch.extend_prefix_lens = seq_lens_cpu_.tolist()
+        batch.extend_seq_lens = [num_draft_tokens for _ in range(bs)]
+        batch.extend_prefix_lens = prev_seq_lens_cpu.tolist()
         batch.extend_num_tokens = extend_num_tokens
         batch.capture_hidden_mode = CaptureHiddenMode.FULL
         batch.forward_mode = ForwardMode.DRAFT_EXTEND_V2
+
+        if (
+            bs > 0
+            and extend_num_tokens > 0
+            and batch.out_cache_loc is not None
+            and batch.out_cache_loc.numel() >= extend_num_tokens
+        ):
+            batch.out_cache_loc = (
+                batch.out_cache_loc.view(bs, -1)[:, :num_draft_tokens]
+                .contiguous()
+                .clone()
+                .view(-1)
+            )
+        else:
+            batch.out_cache_loc = torch.empty(
+                (extend_num_tokens,),
+                dtype=torch.int64,
+                device=batch.input_ids.device,
+            )
+            if bs > 0:
+                assign_extend_cache_locs[(bs,)](
+                    batch.req_pool_indices,
+                    batch.req_to_token_pool.req_to_token,
+                    prev_seq_lens,
+                    prev_seq_lens + num_draft_tokens,
+                    batch.out_cache_loc,
+                    batch.req_to_token_pool.req_to_token.shape[1],
+                    next_power_of_2(bs),
+                )
+
         forward_batch = ForwardBatch.init_new(batch, draft_model_runner)
         draft_model_runner.attn_backend.init_forward_metadata(forward_batch)
         return forward_batch
