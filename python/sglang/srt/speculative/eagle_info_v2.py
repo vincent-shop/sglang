@@ -149,7 +149,7 @@ class EagleDraftInputV2Mixin:
         if page_size == 1 or topk == 1:
             batch.out_cache_loc = torch.empty(
                 (bs * topk * num_steps,),
-                dtype=torch.int64,
+                dtype=torch.int32,
                 device=device,
             )
             assign_draft_cache_locs_page_size_1[(bs,)](
@@ -163,7 +163,7 @@ class EagleDraftInputV2Mixin:
             )
         else:
             prefix_lens = batch.seq_lens
-            last_page_lens = (prefix_lens % page_size).to(torch.int64)
+            last_page_lens = (prefix_lens % page_size).to(torch.int32)
             num_new_pages_per_topk = (
                 last_page_lens + num_steps + page_size - 1
             ) // page_size
@@ -183,21 +183,21 @@ class EagleDraftInputV2Mixin:
             duplicate_cache_len = int(last_page_lens.sum().item() * (topk - 1))
             if duplicate_cache_len > 0:
                 source_cache_loc = torch.empty(
-                    duplicate_cache_len, dtype=torch.int64, device=device
+                    duplicate_cache_len, dtype=torch.int32, device=device
                 )
                 target_cache_loc = torch.empty(
-                    duplicate_cache_len, dtype=torch.int64, device=device
+                    duplicate_cache_len, dtype=torch.int32, device=device
                 )
             else:
-                source_cache_loc = torch.empty(1, dtype=torch.int64, device=device)
-                target_cache_loc = torch.empty(1, dtype=torch.int64, device=device)
+                source_cache_loc = torch.empty(1, dtype=torch.int32, device=device)
+                target_cache_loc = torch.empty(1, dtype=torch.int32, device=device)
             if last_page_lens.numel() == 0:
-                last_page_lens_cumsum = torch.zeros(1, dtype=torch.int64, device=device)
+                last_page_lens_cumsum = torch.zeros(1, dtype=torch.int32, device=device)
             else:
                 last_page_lens_cumsum = torch.cumsum(last_page_lens, dim=0)
                 if last_page_lens_cumsum.numel() == 0:
                     last_page_lens_cumsum = torch.zeros(
-                        1, dtype=torch.int64, device=device
+                        1, dtype=torch.int32, device=device
                     )
 
             assign_draft_cache_locs[(bs,)](
@@ -272,7 +272,7 @@ class EagleVerifyInputV2Mixin:
         device = batch.input_ids.device
         batch.out_cache_loc = torch.empty(
             (bs * self.draft_token_num,),
-            dtype=torch.int64,
+            dtype=torch.int32,
             device=device,
         )
 

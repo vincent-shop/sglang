@@ -175,7 +175,7 @@ class EAGLEWorker(TpModelWorker):
             (), dtype=torch.int64, device=self.device
         )
         self.extend_lens = torch.empty((), dtype=torch.int64, device=self.device)
-        self.last_page_lens = torch.empty((), dtype=torch.int64, device=self.device)
+        self.last_page_lens = torch.empty((), dtype=torch.int32, device=self.device)
 
     def init_attention_backend(self):
         # Create multi-step attn backends and cuda graph runners
@@ -399,7 +399,7 @@ class EAGLEWorker(TpModelWorker):
                     self.topk,
                     self.page_size,
                 )
-                self.last_page_lens = self.last_page_lens.to(torch.int64)
+                self.last_page_lens = self.last_page_lens.to(torch.int32)
                 prefix_lens_cpu = batch.seq_lens_cpu
                 last_page_lens = prefix_lens_cpu % self.page_size
                 num_new_pages_per_topk = (
@@ -428,25 +428,25 @@ class EAGLEWorker(TpModelWorker):
             duplicate_cache_len = int(self.last_page_lens.sum().item() * (self.topk - 1))
             if duplicate_cache_len > 0:
                 target_cache_loc = torch.empty(
-                    duplicate_cache_len, dtype=torch.int64, device=self.device
+                    duplicate_cache_len, dtype=torch.int32, device=self.device
                 )
                 source_cache_loc = torch.empty(
-                    duplicate_cache_len, dtype=torch.int64, device=self.device
+                    duplicate_cache_len, dtype=torch.int32, device=self.device
                 )
             else:
-                target_cache_loc = torch.empty(1, dtype=torch.int64, device=self.device)
-                source_cache_loc = torch.empty(1, dtype=torch.int64, device=self.device)
+                target_cache_loc = torch.empty(1, dtype=torch.int32, device=self.device)
+                source_cache_loc = torch.empty(1, dtype=torch.int32, device=self.device)
             last_page_lens_cumsum = torch.cumsum(
-                self.last_page_lens.to(torch.int64), dim=0
+                self.last_page_lens.to(torch.int32), dim=0
             )
             if last_page_lens_cumsum.numel() == 0:
                 last_page_lens_cumsum = torch.zeros(
-                    1, dtype=torch.int64, device=self.device
+                    1, dtype=torch.int32, device=self.device
                 )
         else:
-            target_cache_loc = torch.empty(1, dtype=torch.int64, device=self.device)
-            source_cache_loc = torch.empty(1, dtype=torch.int64, device=self.device)
-            last_page_lens_cumsum = torch.zeros(1, dtype=torch.int64, device=self.device)
+            target_cache_loc = torch.empty(1, dtype=torch.int32, device=self.device)
+            source_cache_loc = torch.empty(1, dtype=torch.int32, device=self.device)
+            last_page_lens_cumsum = torch.zeros(1, dtype=torch.int32, device=self.device)
 
         assign_draft_cache_locs[(num_seqs,)](
             batch.req_pool_indices,

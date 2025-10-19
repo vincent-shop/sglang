@@ -156,18 +156,20 @@ def assign_draft_cache_locs(
 
     src_indices = tl.load(prefix_base + offsets, mask=mask, other=0)
     last_page_lens_cumsum_ = tl.load(last_page_lens_cumsum + pid)
-    offsets_i64 = tl.cast(offsets, tl.int64)
-    src_indices_i64 = tl.cast(src_indices, tl.int64)
-    last_page_len_i64 = tl.cast(last_page_len, tl.int64)
-    last_page_lens_cumsum_i64 = tl.cast(last_page_lens_cumsum_, tl.int64)
+    offsets_i32 = tl.cast(offsets, tl.int32)
+    src_indices_i32 = tl.cast(src_indices, tl.int32)
+    last_page_len_i32 = tl.cast(last_page_len, tl.int32)
+    last_page_lens_cumsum_i32 = tl.cast(last_page_lens_cumsum_, tl.int32)
 
     for topk_id in range(1, topk):
-        base_offset = (topk - 1) * (
-            last_page_lens_cumsum_i64 - last_page_len_i64
-        ) + (topk_id - 1) * last_page_len_i64
+        base_offset_i64 = (topk - 1) * (
+            tl.cast(last_page_lens_cumsum_i32, tl.int64)
+            - tl.cast(last_page_len_i32, tl.int64)
+        ) + (topk_id - 1) * tl.cast(last_page_len_i32, tl.int64)
+        base_offset_i32 = tl.cast(base_offset_i64, tl.int32)
         tl.store(
-            source_cache_loc + base_offset + offsets_i64,
-            src_indices_i64,
+            source_cache_loc + base_offset_i32 + offsets_i32,
+            src_indices_i32,
             mask=mask,
         )
         tgt_indices = tl.load(
@@ -175,10 +177,10 @@ def assign_draft_cache_locs(
             mask=mask,
             other=0,
         )
-        tgt_indices_i64 = tl.cast(tgt_indices, tl.int64)
+        tgt_indices_i32 = tl.cast(tgt_indices, tl.int32)
         tl.store(
-            target_cache_loc + base_offset + offsets_i64,
-            tgt_indices_i64,
+            target_cache_loc + base_offset_i32 + offsets_i32,
+            tgt_indices_i32,
             mask=mask,
         )
 

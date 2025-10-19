@@ -21,18 +21,18 @@ class TestAssignDraftCacheLocs(unittest.TestCase):
         # Prefix layout: [4,5,6,7,8,9,10], last partial page len = 3
         req_pool_indices = torch.arange(num_seqs, dtype=torch.int32, device=device)
         req_to_token = torch.zeros((num_seqs, 128), dtype=torch.int64, device=device)
-        req_to_token[0, :7] = torch.tensor([4, 5, 6, 7, 8, 9, 10], device=device)
+        req_to_token[0, :7] = torch.tensor([4, 5, 6, 7, 8, 9, 10], dtype=torch.int64, device=device)
         seq_lens = torch.tensor([7], dtype=torch.int32, device=device)
 
         num_new_pages_per_topk = torch.tensor([2], dtype=torch.int32, device=device)
         extend_lens = torch.tensor([61], dtype=torch.int32, device=device)
         out_cache_loc = torch.arange(11, 11 + int(extend_lens.sum()), device=device, dtype=torch.int64)
 
-        last_page_lens = torch.tensor([3], dtype=torch.int64, device=device)
+        last_page_lens = torch.tensor([3], dtype=torch.int32, device=device)
         duplicate_cache_len = int(last_page_lens.sum().item() * (topk - 1))
-        source_cache_loc = torch.empty(duplicate_cache_len, dtype=torch.int64, device=device)
-        target_cache_loc = torch.empty(duplicate_cache_len, dtype=torch.int64, device=device)
-        last_page_lens_cumsum = torch.cumsum(last_page_lens.to(torch.int64), dim=0)
+        source_cache_loc = torch.empty(duplicate_cache_len, dtype=torch.int32, device=device)
+        target_cache_loc = torch.empty(duplicate_cache_len, dtype=torch.int32, device=device)
+        last_page_lens_cumsum = torch.cumsum(last_page_lens, dim=0)
 
         assign_draft_cache_locs[(num_seqs,)](
             req_pool_indices,
@@ -54,7 +54,7 @@ class TestAssignDraftCacheLocs(unittest.TestCase):
 
         trimmed_out = out_cache_loc[: num_seqs * topk * speculative_num_steps]
         expected_source = torch.tensor(
-            [8, 9, 10] * (topk - 1), dtype=torch.int64, device=device
+            [8, 9, 10] * (topk - 1), dtype=torch.int32, device=device
         )
         expected_out = torch.tensor(
             [
