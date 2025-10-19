@@ -439,9 +439,16 @@ class EagleDraftWorker(BaseDraftWorker):
         draft_input = EagleDraftInput(
             hidden_states=batch_result.logits_output.hidden_states,
         )
+        draft_input.accept_length = batch_result.accept_lens
+        bs = len(batch.seq_lens)
+        tokens_per_seq = (
+            batch_result.next_token_ids.shape[0] // bs if bs > 0 else 0
+        )
+        batch_result.draft_width = tokens_per_seq
+
         select_index = (
             torch.arange(len(batch.seq_lens), device=self.device)
-            * self.speculative_num_draft_tokens
+            * tokens_per_seq
             + batch_result.accept_lens
             - 1
         )
@@ -451,7 +458,7 @@ class EagleDraftWorker(BaseDraftWorker):
             forward_batch = draft_input.prepare_for_extend_to_fill_draft_kvcache(
                 batch,
                 batch_result.next_token_ids,
-                self.speculative_num_draft_tokens,
+                tokens_per_seq,
                 self.draft_runner,
             )
 
@@ -485,6 +492,7 @@ class EagleDraftWorker(BaseDraftWorker):
             ret_topk_index,
             ret_hidden_states,
         )
+        next_draft_input.num_tokens_per_batch = tokens_per_seq
 
 
 class EAGLEWorkerV2(BaseSpecWorker):
@@ -629,11 +637,12 @@ class EAGLEWorkerV2(BaseSpecWorker):
 
         all_verified_id = predict[accept_index]
         verified_id = torch.empty_like(accept_length, dtype=torch.int32)
+        draft_width = predict.shape[0] // bs if bs > 0 else 0
         fill_new_verified_id[(bs,)](
             all_verified_id,
             accept_length,
             verified_id,
-            self.speculative_num_draft_tokens,
+            draft_width,
         )
 
         # Construct the next draft input
@@ -643,8 +652,9 @@ class EAGLEWorkerV2(BaseSpecWorker):
             allocate_lens=cur_allocate_lens,
             verify_done=verify_done,
         )
+        next_draft_input.num_tokens_per_batch = draft_width
 
-        return GenerationBatchResult(
+        result = GenerationBatchResult(
             logits_output=logits_output,
             next_token_ids=predict,
             can_run_cuda_graph=can_run_cuda_graph,
@@ -652,6 +662,8 @@ class EAGLEWorkerV2(BaseSpecWorker):
             accept_lens=accept_length,
             allocate_lens=cur_allocate_lens,
         )
+        result.draft_width = draft_width
+        return result
 
     def move_accepted_tokens_to_target_kvcache(
         self,
@@ -668,7 +680,10 @@ class EAGLEWorkerV2(BaseSpecWorker):
             accept_length: The length of the accepted tokens.
         """
         bs = len(batch.seq_lens)
-        size = bs * self.speculative_num_draft_tokens
+        size = accept_index.numel()
+
+        if size == 0:
+            return
 
         tgt_cache_loc = torch.zeros(
             size,
