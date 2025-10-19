@@ -435,30 +435,44 @@ class EagleDraftWorker(BaseDraftWorker):
     def _draft_extend_for_decode(
         self, batch: ModelWorkerBatch, batch_result: GenerationBatchResult
     ):
-        # Batch 2: Draft extend
-        draft_input = EagleDraftInput(
-            hidden_states=batch_result.logits_output.hidden_states,
-        )
-        draft_input.accept_length = batch_result.accept_lens
-        bs = len(batch.seq_lens)
-        tokens_per_seq = (
-            batch_result.next_token_ids.shape[0] // bs if bs > 0 else 0
-        )
-        batch_result.draft_width = tokens_per_seq
+        extend_lens = batch_result.accept_lens
+        if extend_lens is None:
+            extend_lens = torch.zeros(0, device=self.device, dtype=torch.int32)
+        if extend_lens.numel() == 0 or batch_result.accepted_token_ids.numel() == 0:
+            next_draft_input = batch_result.next_draft_input
+            hidden_states = batch_result.logits_output.hidden_states
+            hidden_size = (
+                hidden_states.shape[-1]
+                if hidden_states is not None and hidden_states.numel() > 0
+                else 0
+            )
+            device = hidden_states.device if hidden_states is not None else self.device
+            next_draft_input.topk_p = torch.empty(
+                (0, self.topk), dtype=torch.float32, device=device
+            )
+            next_draft_input.topk_index = torch.empty(
+                (0, self.topk), dtype=torch.int64, device=device
+            )
+            next_draft_input.hidden_states = torch.empty(
+                (0, hidden_size),
+                dtype=hidden_states.dtype if hidden_states is not None else torch.float32,
+                device=device,
+            )
+            next_draft_input.num_tokens_per_batch = 0
+            return
 
-        select_index = (
-            torch.arange(len(batch.seq_lens), device=self.device)
-            * tokens_per_seq
-            + batch_result.accept_lens
-            - 1
+        accept_indices = batch_result.accept_indices.to(torch.long)
+        accept_index_flat = accept_indices[accept_indices != -1]
+        draft_input = EagleDraftInput(
+            hidden_states=batch_result.logits_output.hidden_states[accept_index_flat],
         )
 
         # Prepare for draft extend in a separate stream
         with self.plan_stream_ctx:
             forward_batch = draft_input.prepare_for_extend_to_fill_draft_kvcache(
                 batch,
-                batch_result.next_token_ids,
-                tokens_per_seq,
+                batch_result.accepted_token_ids,
+                extend_lens,
                 self.draft_runner,
             )
 
@@ -469,6 +483,8 @@ class EagleDraftWorker(BaseDraftWorker):
         draft_logits_output = self.draft_runner.model.forward(
             forward_batch.input_ids, forward_batch.positions, forward_batch
         )
+
+        select_index = torch.cumsum(extend_lens, dim=0) - 1
 
         # Reorganize the spec info for the next batch
         draft_logits_output.next_token_logits = draft_logits_output.next_token_logits[
@@ -492,7 +508,9 @@ class EagleDraftWorker(BaseDraftWorker):
             ret_topk_index,
             ret_hidden_states,
         )
-        next_draft_input.num_tokens_per_batch = tokens_per_seq
+        next_draft_input.num_tokens_per_batch = (
+            int(extend_lens.max().item()) if extend_lens.numel() > 0 else 0
+        )
 
 
 class EAGLEWorkerV2(BaseSpecWorker):
@@ -631,19 +649,58 @@ class EAGLEWorkerV2(BaseSpecWorker):
             accept_length,
             accept_index,
         ) = verify_input.sample(batch, logits_output)
+        stride = self.speculative_num_draft_tokens
+        if bs > 0 and stride > 0 and predict.shape[0] != bs * stride:
+            tokens_per_seq = predict.shape[0] // max(bs, 1)
+            predict = predict.reshape(bs, tokens_per_seq)
+            if tokens_per_seq >= stride:
+                predict = predict[:, :stride]
+            else:
+                pad = predict[:, -1:].expand(-1, stride - tokens_per_seq)
+                predict = torch.cat([predict, pad], dim=1)
+            predict = predict.reshape(-1)
         new_seq_lens = batch.seq_lens + accept_length
         verify_done = torch.cuda.Event()
         verify_done.record()
 
-        all_verified_id = predict[accept_index]
+        if bs == 0 or stride == 0:
+            accepted_tokens_flat = torch.empty(
+                0, dtype=torch.int32, device=self.device
+            )
+            accepted_tokens_strided = accepted_tokens_flat
+        else:
+            lengths = accept_length.tolist()
+            accepted_tokens_list = []
+            accepted_tokens_strided = torch.empty(
+                (bs, stride), dtype=torch.int32, device=self.device
+            )
+            for i in range(bs):
+                valid = min(int(lengths[i]), stride)
+                seq_indices = accept_index[i, :valid].to(torch.long)
+                seq_tokens = predict[seq_indices]
+                if valid > 0:
+                    accepted_tokens_list.append(seq_tokens)
+                    accepted_tokens_strided[i, :valid] = seq_tokens
+                    pad_value = seq_tokens[-1]
+                    if valid < stride:
+                        accepted_tokens_strided[i, valid:] = pad_value
+                else:
+                    accepted_tokens_strided[i].fill_(0)
+            accepted_tokens_flat = (
+                torch.cat(accepted_tokens_list)
+                if accepted_tokens_list
+                else torch.empty(0, dtype=torch.int32, device=self.device)
+            )
+            accepted_tokens_strided = accepted_tokens_strided.reshape(-1)
+
         verified_id = torch.empty_like(accept_length, dtype=torch.int32)
-        draft_width = predict.shape[0] // bs if bs > 0 else 0
-        fill_new_verified_id[(bs,)](
-            all_verified_id,
-            accept_length,
-            verified_id,
-            draft_width,
-        )
+        if bs > 0 and stride > 0:
+            fill_new_verified_id[(bs,)](
+                accepted_tokens_strided,
+                accept_length,
+                verified_id,
+                stride,
+            )
 
         # Construct the next draft input
         next_draft_input = EagleDraftInput(
@@ -652,17 +709,18 @@ class EAGLEWorkerV2(BaseSpecWorker):
             allocate_lens=cur_allocate_lens,
             verify_done=verify_done,
         )
-        next_draft_input.num_tokens_per_batch = draft_width
+        next_draft_input.num_tokens_per_batch = self.speculative_num_draft_tokens
 
         result = GenerationBatchResult(
             logits_output=logits_output,
-            next_token_ids=predict,
+            next_token_ids=accepted_tokens_strided,
             can_run_cuda_graph=can_run_cuda_graph,
             next_draft_input=next_draft_input,
             accept_lens=accept_length,
             allocate_lens=cur_allocate_lens,
         )
-        result.draft_width = draft_width
+        result.accept_indices = accept_index
+        result.accepted_token_ids = accepted_tokens_flat
         return result
 
     def move_accepted_tokens_to_target_kvcache(

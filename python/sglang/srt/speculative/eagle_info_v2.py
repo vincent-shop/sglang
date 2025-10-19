@@ -165,97 +165,38 @@ class EagleDraftInputV2Mixin:
     def prepare_for_extend_to_fill_draft_kvcache(
         self,
         batch: ModelWorkerBatch,
-        predict: torch.Tensor,
-        num_draft_tokens: int,
+        extend_token_ids: torch.Tensor,
+        extend_lens: torch.Tensor,
         draft_model_runner: Any,
     ):
         seq_lens_cpu_ = batch.seq_lens_cpu
-        bs = len(batch.seq_lens)
-        total_tokens = predict.shape[0]
-        if bs > 0:
-            assert (
-                total_tokens % bs == 0
-            ), "The number of draft extend tokens must be divisible by batch size."
-            tokens_per_seq = total_tokens // bs
-        else:
-            tokens_per_seq = 0
-        extend_num_tokens = total_tokens
-
         prev_seq_lens = batch.seq_lens.clone()
-        new_seq_lens = prev_seq_lens + tokens_per_seq
+        extend_lens = extend_lens.to(prev_seq_lens.dtype)
+        extend_num_tokens = extend_token_ids.numel()
+        new_seq_lens = prev_seq_lens + extend_lens
 
         batch.spec_info = self
-        batch.input_ids = predict
+        batch.input_ids = extend_token_ids
         if (
             self.hidden_states is not None
             and self.hidden_states.shape[0] > 0
             and extend_num_tokens > 0
         ):
-            accept_length = getattr(self, "accept_length", None)
             hidden_states = self.hidden_states
-            hidden_size = hidden_states.shape[1]
             hs_rows = hidden_states.shape[0]
-            if accept_length is not None:
-                if accept_length.device != hidden_states.device:
-                    accept_length = accept_length.to(hidden_states.device)
-                accept_lengths = accept_length.to(torch.int64)
-                if accept_lengths.numel() != bs:
-                    raise RuntimeError(
-                        "accept_length size does not match batch size in draft extend."
-                    )
-                lengths_cpu = accept_lengths.tolist()
-                split_states = torch.split(hidden_states, lengths_cpu, dim=0)
-                padded_states = []
-                for idx in range(bs):
-                    seq_states = split_states[idx] if idx < len(split_states) else None
-                    cur_len = lengths_cpu[idx]
-                    if seq_states is None or seq_states.numel() == 0:
-                        if cur_len == 0:
-                            cur_state = torch.zeros(
-                                (tokens_per_seq, hidden_size),
-                                device=hidden_states.device,
-                                dtype=hidden_states.dtype,
-                            )
-                            padded_states.append(cur_state)
-                            continue
-                        raise RuntimeError(
-                            "Hidden states missing for non-zero accept length."
-                        )
-                    if seq_states.shape[0] != cur_len:
-                        seq_states = seq_states[-1:].expand(cur_len, -1)
-                    if cur_len < tokens_per_seq:
-                        pad = seq_states[-1:].expand(tokens_per_seq - cur_len, -1)
-                        seq_states = torch.cat([seq_states, pad], dim=0)
-                    elif cur_len > tokens_per_seq:
-                        seq_states = seq_states[:tokens_per_seq]
-                    padded_states.append(seq_states)
-                hidden_states = torch.cat(padded_states, dim=0)
-            else:
-                if hs_rows != extend_num_tokens:
-                    if bs > 0 and hs_rows % bs == 0:
-                        hs_per_seq = hs_rows // bs
-                        hidden_states = hidden_states.view(bs, hs_per_seq, hidden_size)
-                        if hs_per_seq >= tokens_per_seq:
-                            hidden_states = hidden_states[:, :tokens_per_seq, :]
-                        else:
-                            repeat_factor = (
-                                tokens_per_seq + hs_per_seq - 1
-                            ) // hs_per_seq
-                            hidden_states = hidden_states.repeat_interleave(
-                                repeat_factor, dim=1
-                            )
-                            hidden_states = hidden_states[:, :tokens_per_seq, :]
-                        hidden_states = hidden_states.reshape(-1, hidden_size)
-                    else:
-                        repeat_factor = (extend_num_tokens + hs_rows - 1) // hs_rows
-                        hidden_states = hidden_states.repeat_interleave(
-                            repeat_factor, dim=0
-                        )[:extend_num_tokens]
+            if hs_rows != extend_num_tokens and extend_num_tokens > 0:
+                repeat_factor = (
+                    (extend_num_tokens + hs_rows - 1) // hs_rows if hs_rows > 0 else 1
+                )
+                hidden_states = hidden_states.repeat_interleave(
+                    repeat_factor, dim=0
+                )[:extend_num_tokens]
             self.hidden_states = hidden_states
         if self.allocate_lens is not None:
-            self.allocate_lens = self.allocate_lens + tokens_per_seq
+            self.allocate_lens = self.allocate_lens + extend_lens
 
-        if bs == 0:
+        bs = len(batch.seq_lens)
+        if bs == 0 or extend_num_tokens == 0:
             batch.out_cache_loc = torch.empty(
                 0, dtype=torch.int64, device=batch.input_ids.device
             )
@@ -276,10 +217,19 @@ class EagleDraftInputV2Mixin:
             )
 
         batch.seq_lens = new_seq_lens
-        batch.seq_lens_cpu = batch.seq_lens_cpu + tokens_per_seq
+        seq_lens_cpu_tensor = (
+            seq_lens_cpu_
+            if isinstance(seq_lens_cpu_, torch.Tensor)
+            else torch.tensor(seq_lens_cpu_, dtype=torch.int64, device="cpu")
+        )
+        extend_lens_cpu = extend_lens.to(
+            device=seq_lens_cpu_tensor.device, dtype=seq_lens_cpu_tensor.dtype
+        )
+        batch.seq_lens_cpu = seq_lens_cpu_tensor + extend_lens_cpu
+        batch.extend_prefix_lens = seq_lens_cpu_tensor.tolist()
+        extend_seq_lens_list = extend_lens_cpu.tolist()
         batch.seq_lens_sum += extend_num_tokens
-        batch.extend_seq_lens = [tokens_per_seq for _ in range(len(batch.seq_lens))]
-        batch.extend_prefix_lens = seq_lens_cpu_.tolist()
+        batch.extend_seq_lens = extend_seq_lens_list
         batch.extend_num_tokens = extend_num_tokens
         batch.capture_hidden_mode = CaptureHiddenMode.FULL
         batch.forward_mode = ForwardMode.DRAFT_EXTEND_V2

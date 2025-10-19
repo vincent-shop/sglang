@@ -219,6 +219,8 @@ class GenerationBatchResult:
     # sync path: forward stream -> output processor
     accept_lens: Optional[torch.Tensor] = None
     allocate_lens: Optional[torch.Tensor] = None
+    accept_indices: Optional[torch.Tensor] = None
+    accepted_token_ids: Optional[torch.Tensor] = None
 
     # relay path: forward stream -> next step forward
     next_draft_input: Optional[EagleDraftInput] = None
@@ -248,6 +250,14 @@ class GenerationBatchResult:
 
         if self.allocate_lens is not None:
             self.allocate_lens = self.allocate_lens.to("cpu", non_blocking=True)
+
+        if self.accept_indices is not None:
+            self.accept_indices = self.accept_indices.to("cpu", non_blocking=True)
+
+        if self.accepted_token_ids is not None:
+            self.accepted_token_ids = self.accepted_token_ids.to(
+                "cpu", non_blocking=True
+            )
 
         self.copy_done.record()
 
