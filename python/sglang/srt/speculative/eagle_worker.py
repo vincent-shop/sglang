@@ -811,6 +811,13 @@ class EAGLEWorker(TpModelWorker):
             num_tokens_per_batch=1,
             num_tokens_for_logprob_per_batch=1,
         )
+        print(
+            "[DEBUG] forward_draft_extend start",
+            f"seq_lens={batch.seq_lens.tolist() if hasattr(batch.seq_lens, 'tolist') else batch.seq_lens}",
+            f"seq_lens_cpu={seq_lens_cpu.tolist() if hasattr(seq_lens_cpu, 'tolist') else seq_lens_cpu}",
+            f"next_token_ids_shape={tuple(next_token_ids.shape)}",
+            f"hidden_states_shape={tuple(hidden_states.shape)}",
+        )
         batch.return_hidden_states = False
         batch.spec_info.prepare_for_extend(batch)
         batch.spec_info.capture_hidden_mode = CaptureHiddenMode.LAST
@@ -819,6 +826,13 @@ class EAGLEWorker(TpModelWorker):
         )
         forward_batch = ForwardBatch.init_new(
             model_worker_batch, self.draft_model_runner
+        )
+        print(
+            "[DEBUG] forward_draft_extend forward_batch",
+            f"input_ids_shape={tuple(forward_batch.input_ids.shape)}",
+            f"positions_shape={tuple(forward_batch.positions.shape) if forward_batch.positions is not None else None}",
+            f"out_cache_loc_shape={tuple(forward_batch.out_cache_loc.shape)}",
+            f"forward_mode={forward_batch.forward_mode}",
         )
         forward_batch.return_logprob = False
         logits_output, _ = self.draft_model_runner.forward(forward_batch)
@@ -853,6 +867,14 @@ class EAGLEWorker(TpModelWorker):
         return_logprob_backup = batch.return_logprob
 
         input_is_idle = batch.forward_mode.is_idle()
+        print(
+            "[DEBUG] forward_draft_extend_after_decode start",
+            f"seq_lens={batch.seq_lens.tolist() if hasattr(batch.seq_lens, 'tolist') else batch.seq_lens}",
+            f"seq_lens_cpu={batch.seq_lens_cpu.tolist() if hasattr(batch.seq_lens_cpu, 'tolist') else batch.seq_lens_cpu}",
+            f"verified_id_shape={tuple(batch.spec_info.verified_id.shape)}",
+            f"accept_length={batch.spec_info.accept_length.tolist() if hasattr(batch.spec_info.accept_length, 'tolist') else batch.spec_info.accept_length}",
+            f"forward_mode={batch.forward_mode}",
+        )
 
         if not input_is_idle and batch.spec_info.verified_id.numel() == 0:
             batch = batch.copy()
@@ -876,6 +898,14 @@ class EAGLEWorker(TpModelWorker):
             batch,
             self.speculative_num_steps,
         )
+        print(
+            "[DEBUG] forward_draft_extend_after_decode after prepare",
+            f"seq_lens={batch.seq_lens.tolist() if hasattr(batch.seq_lens, 'tolist') else batch.seq_lens}",
+            f"seq_lens_cpu={batch.seq_lens_cpu.tolist() if hasattr(batch.seq_lens_cpu, 'tolist') else batch.seq_lens_cpu}",
+            f"extend_lens={batch.extend_lens}",
+            f"extend_num_tokens={batch.extend_num_tokens}",
+            f"input_ids_shape={tuple(batch.input_ids.shape)}",
+        )
         batch.forward_mode = (
             ForwardMode.DRAFT_EXTEND
             if not batch.forward_mode.is_idle()
@@ -892,6 +922,13 @@ class EAGLEWorker(TpModelWorker):
             forward_batch.seq_lens_sum = forward_batch.seq_lens_cpu.sum().item()
         else:
             forward_batch.seq_lens_sum = batch.seq_lens.sum().item()
+        print(
+            "[DEBUG] forward_draft_extend_after_decode forward_batch",
+            f"input_ids_shape={tuple(forward_batch.input_ids.shape)}",
+            f"positions_shape={tuple(forward_batch.positions.shape) if forward_batch.positions is not None else None}",
+            f"out_cache_loc_shape={tuple(forward_batch.out_cache_loc.shape)}",
+            f"forward_mode={forward_batch.forward_mode}",
+        )
 
         # Run
         can_cuda_graph = (

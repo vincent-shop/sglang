@@ -665,6 +665,14 @@ class EagleDraftInput(SpecInput, EagleDraftInputV2Mixin):
         if batch.forward_mode.is_idle():
             return
 
+        print(
+            "[DEBUG] EagleDraftInput.prepare_extend_after_decode start",
+            f"seq_lens={batch.seq_lens.tolist() if hasattr(batch.seq_lens, 'tolist') else batch.seq_lens}",
+            f"seq_lens_cpu={batch.seq_lens_cpu.tolist() if hasattr(batch.seq_lens_cpu, 'tolist') else batch.seq_lens_cpu}",
+            f"accept_length={self.accept_length.tolist() if hasattr(self.accept_length, 'tolist') else self.accept_length}",
+            f"verified_id_shape={tuple(self.verified_id.shape)}",
+            f"speculative_num_steps={speculative_num_steps}",
+        )
         batch.input_ids = self.verified_id
         batch.extend_lens = [x + 1 for x in batch.spec_info.accept_length_cpu]
         batch.extend_num_tokens = sum(batch.extend_lens)
@@ -686,6 +694,14 @@ class EagleDraftInput(SpecInput, EagleDraftInputV2Mixin):
             self.positions,
             self.verified_id,
             next_power_of_2(max(speculative_num_steps + 1, len(batch.seq_lens))),
+        )
+        print(
+            "[DEBUG] EagleDraftInput.prepare_extend_after_decode after prepare",
+            f"new_seq_lens={batch.seq_lens.tolist() if hasattr(batch.seq_lens, 'tolist') else batch.seq_lens}",
+            f"extend_lens={batch.extend_lens}",
+            f"extend_num_tokens={batch.extend_num_tokens}",
+            f"input_ids_shape={tuple(batch.input_ids.shape)}",
+            f"positions_shape={tuple(self.positions.shape)}",
         )
 
     def generate_attn_arg_prefill(
