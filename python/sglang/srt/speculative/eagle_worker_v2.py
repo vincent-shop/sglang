@@ -290,6 +290,9 @@ class EagleDraftWorker(BaseDraftWorker):
             position_buf,
         )
 
+        # Get draft cache locations for V2 overlap cleanup
+        draft_out_cache_loc = getattr(draft_input, '_draft_out_cache_loc', None)
+        
         return EagleVerifyInput(
             draft_token=draft_tokens,
             custom_mask=tree_mask,
@@ -304,6 +307,7 @@ class EagleDraftWorker(BaseDraftWorker):
             capture_hidden_mode=None,
             seq_lens_sum=None,
             seq_lens_cpu=None,
+            draft_out_cache_loc=draft_out_cache_loc,  # Pass draft cache locations for cleanup
         )
 
     def draft_forward(self, forward_batch: ForwardBatch):

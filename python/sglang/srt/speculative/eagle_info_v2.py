@@ -25,6 +25,7 @@ from sglang.srt.model_executor.model_runner import ModelRunner
 from sglang.srt.server_args import get_global_server_args
 from sglang.srt.speculative.spec_utils import (
     SIMULATE_ACC_LEN,
+    assign_draft_cache_locs,
     generate_simulated_accept_index,
 )
 from sglang.srt.utils.common import fast_topk, is_cuda, is_hip, next_power_of_2
@@ -96,7 +97,7 @@ class EagleDraftInputV2Mixin:
         if page_size == 1:
             new_allocate_lens = batch.seq_lens + self.ALLOC_LEN_PER_DECODE
             extend_lens = new_allocate_lens - self.allocate_lens
-            num_needed_tokens = extend_lens.sum().item()
+            num_needed_tokens = bs * self.ALLOC_LEN_PER_DECODE
             print(f"[DEBUG prepare_for_decode] num_needed_tokens={num_needed_tokens}")
             out_cache_loc = alloc_token_slots(batch.tree_cache, num_needed_tokens)
             print(f"[DEBUG prepare_for_decode] Allocated cache_locs (linear): {out_cache_loc[:min(20, len(out_cache_loc))]}")
@@ -142,6 +143,8 @@ class EagleDraftInputV2Mixin:
         
         self._pending_out_cache_loc = out_cache_loc
         self._pending_extend_lens = extend_lens
+        # Store the allocated tokens per sequence for later cleanup
+        self._allocated_tokens_per_seq = self.ALLOC_LEN_PER_DECODE
         print(f"[DEBUG prepare_for_decode] Storing _pending_out_cache_loc: {out_cache_loc[:min(20, len(out_cache_loc))]}")
         print(f"[DEBUG prepare_for_decode] === EXIT ===\n")
         self.allocate_lens = new_allocate_lens
@@ -173,46 +176,117 @@ class EagleDraftInputV2Mixin:
         if pending_out_cache is not None:
             print(f"[DEBUG prepare_for_v2_draft] pending_out_cache.numel()={pending_out_cache.numel()}, values[:20]={pending_out_cache[:min(20, len(pending_out_cache))]}")
         
-        if (
-            pending_out_cache is not None
-            and total_tokens > 0
-            and pending_out_cache.numel() >= total_tokens
-        ):
-            print(f"[DEBUG prepare_for_v2_draft] Using pending_out_cache (allocated in prepare_for_decode)")
-            out_cache_loc = pending_out_cache[:total_tokens]
-            print(f"[DEBUG prepare_for_v2_draft] Sliced out_cache_loc: {out_cache_loc[:min(20, len(out_cache_loc))]}")
-        else:
-            print(f"[DEBUG prepare_for_v2_draft] Creating NEW empty out_cache_loc and calling kernel")
-            out_cache_loc = torch.empty(
-                (total_tokens,),
-                dtype=torch.int64,
-                device=batch.input_ids.device,
-            )
-            if total_tokens > 0:
-                print(f"[DEBUG prepare_for_v2_draft] Calling assign_draft_cache_locs_page_size_1")
-                print(f"[DEBUG prepare_for_v2_draft] Reading from req_to_token starting at seq_lens={batch.seq_lens}")
-                
-                assign_draft_cache_locs_page_size_1[(bs,)](
-                    batch.req_pool_indices,
-                    req_to_token_pool.req_to_token,
-                    batch.seq_lens,
-                    out_cache_loc,
-                    req_to_token_pool.req_to_token.shape[1],
-                    topk,
-                    num_steps,
+        if topk > 1 and total_tokens > 0:
+            print(f"[DEBUG prepare_for_v2_draft] Using assign_draft_cache_locs for topk={topk}")
+            tokens_per_seq = topk * num_steps
+            if (
+                pending_out_cache is not None
+                and pending_out_cache.numel() >= total_tokens
+            ):
+                out_cache_loc = pending_out_cache[:total_tokens].to(
+                    dtype=torch.int64, device=batch.seq_lens.device
                 )
-                
-                if bs > 0:
-                    req_idx = batch.req_pool_indices[0].item()
-                    kv_start = batch.seq_lens[0].item()
-                    pool_len = req_to_token_pool.req_to_token.shape[1]
-                    print(f"[DEBUG prepare_for_v2_draft] After kernel: req_to_token[{req_idx}, {kv_start}:{kv_start+tokens_per_seq}] = {req_to_token_pool.req_to_token[req_idx, kv_start:kv_start+tokens_per_seq]}")
-                    print(f"[DEBUG prepare_for_v2_draft] After kernel: out_cache_loc = {out_cache_loc[:min(20, len(out_cache_loc))]}")
+                print(f"[DEBUG prepare_for_v2_draft] Reusing pending_out_cache slice")
+            else:
+                out_cache_loc = torch.empty(
+                    (total_tokens,),
+                    dtype=torch.int64,
+                    device=batch.seq_lens.device,
+                )
+                print(f"[DEBUG prepare_for_v2_draft] Gathering cache locs from req_to_token for each sequence")
+                pool = req_to_token_pool.req_to_token
+                offset = 0
+                for i in range(bs):
+                    req_idx = batch.req_pool_indices[i].item()
+                    kv_start = batch.seq_lens[i].item()
+                    seq_slice = pool[req_idx, kv_start : kv_start + tokens_per_seq]
+                    out_cache_loc[offset : offset + tokens_per_seq] = seq_slice.to(
+                        torch.int64
+                    )
+                    offset += tokens_per_seq
+            extend_lens = getattr(self, "_pending_extend_lens", None)
+            if extend_lens is None or extend_lens.numel() != bs:
+                extend_lens = torch.full(
+                    (bs,),
+                    topk * num_steps,
+                    dtype=batch.seq_lens.dtype,
+                    device=batch.seq_lens.device,
+                )
+            else:
+                extend_lens = extend_lens.to(
+                    device=batch.seq_lens.device, dtype=batch.seq_lens.dtype
+                )
+            num_new_pages_per_topk = torch.ones_like(extend_lens)
+            page_size = (
+                batch.token_to_kv_pool_allocator.page_size
+                if hasattr(batch, "token_to_kv_pool_allocator")
+                and batch.token_to_kv_pool_allocator is not None
+                else 1
+            )
+            assign_draft_cache_locs[(bs,)](
+                batch.req_pool_indices,
+                req_to_token_pool.req_to_token,
+                batch.seq_lens,
+                extend_lens,
+                num_new_pages_per_topk,
+                out_cache_loc,
+                req_to_token_pool.req_to_token.shape[1],
+                topk,
+                num_steps,
+                page_size,
+                next_power_of_2(bs),
+                next_power_of_2(num_steps),
+            )
+            if bs > 0:
+                req_idx = batch.req_pool_indices[0].item()
+                kv_start = batch.seq_lens[0].item()
+                print(f"[DEBUG prepare_for_v2_draft] After assign_draft_cache_locs: req_to_token[{req_idx}, {kv_start}:{kv_start+tokens_per_seq}] = {req_to_token_pool.req_to_token[req_idx, kv_start:kv_start+tokens_per_seq]}")
+        else:
+            if (
+                pending_out_cache is not None
+                and total_tokens > 0
+                and pending_out_cache.numel() >= total_tokens
+            ):
+                print(f"[DEBUG prepare_for_v2_draft] Using pending_out_cache (allocated in prepare_for_decode)")
+                out_cache_loc = pending_out_cache[:total_tokens]
+                print(f"[DEBUG prepare_for_v2_draft] Sliced out_cache_loc: {out_cache_loc[:min(20, len(out_cache_loc))]}")
+            else:
+                print(f"[DEBUG prepare_for_v2_draft] Creating NEW empty out_cache_loc and calling kernel")
+                out_cache_loc = torch.empty(
+                    (total_tokens,),
+                    dtype=torch.int64,
+                    device=batch.input_ids.device,
+                )
+                if total_tokens > 0:
+                    print(f"[DEBUG prepare_for_v2_draft] Calling assign_draft_cache_locs_page_size_1")
+                    print(f"[DEBUG prepare_for_v2_draft] Reading from req_to_token starting at seq_lens={batch.seq_lens}")
+
+                    assign_draft_cache_locs_page_size_1[(bs,)](
+                        batch.req_pool_indices,
+                        req_to_token_pool.req_to_token,
+                        batch.seq_lens,
+                        out_cache_loc,
+                        req_to_token_pool.req_to_token.shape[1],
+                        topk,
+                        num_steps,
+                    )
+
+                    if bs > 0:
+                        req_idx = batch.req_pool_indices[0].item()
+                        kv_start = batch.seq_lens[0].item()
+                        pool_len = req_to_token_pool.req_to_token.shape[1]
+                        print(f"[DEBUG prepare_for_v2_draft] After kernel: req_to_token[{req_idx}, {kv_start}:{kv_start+tokens_per_seq}] = {req_to_token_pool.req_to_token[req_idx, kv_start:kv_start+tokens_per_seq]}")
+                        print(f"[DEBUG prepare_for_v2_draft] After kernel: out_cache_loc = {out_cache_loc[:min(20, len(out_cache_loc))]}")
         
         batch.out_cache_loc = out_cache_loc
         print(f"[DEBUG prepare_for_v2_draft] Final batch.out_cache_loc.shape={batch.out_cache_loc.shape}")
-        print(f"[DEBUG prepare_for_v2_draft] Final batch.out_cache_loc[:20]={batch.out_cache_loc[:min(20, len(batch.out_cache_loc))]}")
+        print(f"[DEBUG prepare_for_v2_draft] Final batch.out_cache_loc[:20]={batch.out_cache_loc[:min(20, len(batch.out_cache_loc))]}")  
         print(f"[DEBUG prepare_for_v2_draft] === EXIT ===\n")
+        
+        # CRITICAL: Store the draft cache locations for later cleanup after verification
+        # This is needed because prepare_for_v2_verify will overwrite batch.out_cache_loc
+        self._draft_out_cache_loc = out_cache_loc.clone()
+        print(f"[DEBUG prepare_for_v2_draft] Stored _draft_out_cache_loc (size={len(self._draft_out_cache_loc)}) for later cleanup")
         
         self._pending_out_cache_loc = None
         self._pending_extend_lens = None

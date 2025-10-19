@@ -335,6 +335,11 @@ class EAGLEWorker(TpModelWorker):
         num_seqs = batch.batch_size()
         spec_info = batch.spec_info
 
+        print(f"\n{'='*80}")
+        print(f"[DEBUG NON-OVERLAP _draft_preprocess_decode] ENTRY")
+        print(f"[DEBUG NON-OVERLAP] num_seqs={num_seqs}, topk={self.topk}, num_steps={self.speculative_num_steps}, page_size={self.page_size}")
+        print(f"[DEBUG NON-OVERLAP] batch.seq_lens={batch.seq_lens}")
+
         # Accumulate penalty
         if batch.sampling_info.penalizer_orchestrator.is_required:
             # This is a relaxed version of penalties for speculative decoding.
@@ -347,11 +352,13 @@ class EAGLEWorker(TpModelWorker):
         # [       topk 0         ] [       topk 1         ]
         # [iter=0, iter=1, iter=2] [iter=0, iter=1, iter=2]
         if self.page_size == 1:
+            print(f"[DEBUG NON-OVERLAP] Allocating cache for page_size=1, total slots={num_seqs * self.speculative_num_steps * self.topk}")
             out_cache_loc, token_to_kv_pool_state_backup = alloc_token_slots(
                 batch.tree_cache,
                 num_seqs * self.speculative_num_steps * self.topk,
                 backup_state=True,
             )
+            print(f"[DEBUG NON-OVERLAP] Allocated out_cache_loc[:20]={out_cache_loc[:min(20, len(out_cache_loc))]}")
         else:
             if self.topk == 1:
                 prefix_lens, seq_lens, last_loc = get_last_loc_large_page_size_top_k_1(
@@ -421,6 +428,9 @@ class EAGLEWorker(TpModelWorker):
                 )
             )
 
+        print(f"[DEBUG NON-OVERLAP] BEFORE assign_draft_cache_locs:")
+        print(f"[DEBUG NON-OVERLAP] out_cache_loc[:20]={out_cache_loc[:min(20, len(out_cache_loc))]}")
+        
         assign_draft_cache_locs[(num_seqs,)](
             batch.req_pool_indices,
             batch.req_to_token_pool.req_to_token,
@@ -436,6 +446,13 @@ class EAGLEWorker(TpModelWorker):
             next_power_of_2(self.speculative_num_steps),
         )
 
+        print(f"[DEBUG NON-OVERLAP] AFTER assign_draft_cache_locs:")
+        if num_seqs > 0:
+            req_idx = batch.req_pool_indices[0].item()
+            kv_start = batch.seq_lens[0].item()
+            tokens_per_seq = self.topk * self.speculative_num_steps
+            print(f"[DEBUG NON-OVERLAP] req_to_token[{req_idx}, {kv_start}:{kv_start+tokens_per_seq}] = {batch.req_to_token_pool.req_to_token[req_idx, kv_start:kv_start+tokens_per_seq]}")
+
         if self.page_size > 1 and self.topk > 1:
             # Remove padded slots
             out_cache_loc = out_cache_loc[
@@ -443,6 +460,8 @@ class EAGLEWorker(TpModelWorker):
             ]
 
         batch.out_cache_loc = out_cache_loc
+        print(f"[DEBUG NON-OVERLAP] Final batch.out_cache_loc[:20]={batch.out_cache_loc[:min(20, len(batch.out_cache_loc))]}")
+        print(f"[DEBUG NON-OVERLAP] === EXIT ===\n")
         batch.seq_lens_sum = torch.sum(batch.seq_lens).item()
         batch.return_hidden_states = False
         spec_info.positions = batch.seq_lens.repeat_interleave(self.topk, dim=0)
@@ -553,12 +572,26 @@ class EAGLEWorker(TpModelWorker):
         if self.hot_token_id is not None:
             topk_index = self.hot_token_id[topk_index]
 
+        print(f"\n{'='*80}")
+        print(f"[DEBUG NON-OVERLAP draft_forward] ENTRY")
+        print(f"[DEBUG NON-OVERLAP] batch_size={forward_batch.batch_size}, topk={self.topk}, num_steps={self.speculative_num_steps}")
+        print(f"[DEBUG NON-OVERLAP] out_cache_loc (flat) shape={out_cache_loc.shape}")
+        print(f"[DEBUG NON-OVERLAP] out_cache_loc values[:20]={out_cache_loc[:min(20, len(out_cache_loc))]}")
+
         out_cache_loc = out_cache_loc.reshape(
             forward_batch.batch_size, self.topk, self.speculative_num_steps
         )
+        print(f"[DEBUG NON-OVERLAP] After reshape to (bs, topk, steps): shape={out_cache_loc.shape}")
+        if forward_batch.batch_size > 0:
+            print(f"[DEBUG NON-OVERLAP] out_cache_loc[0] (all topk/steps for seq 0):\n{out_cache_loc[0]}")
+        
         out_cache_loc = out_cache_loc.permute((2, 0, 1)).reshape(
             self.speculative_num_steps, -1
         )
+        print(f"[DEBUG NON-OVERLAP] After permute to (steps, bs*topk): shape={out_cache_loc.shape}")
+        print(f"[DEBUG NON-OVERLAP] out_cache_loc[0] (step 0, all bs*topk)={out_cache_loc[0]}")
+        if out_cache_loc.shape[0] > 1:
+            print(f"[DEBUG NON-OVERLAP] out_cache_loc[1] (step 1, all bs*topk)={out_cache_loc[1]}")
 
         # Return values
         score_list: List[torch.Tensor] = []
@@ -567,20 +600,25 @@ class EAGLEWorker(TpModelWorker):
 
         # Forward multiple steps
         scores = None
+        print(f"[DEBUG NON-OVERLAP] Starting {self.speculative_num_steps} forward steps\n")
         for i in range(self.speculative_num_steps):
+            print(f"[DEBUG NON-OVERLAP] --- Step {i} ---")
             input_ids, hidden_states, scores, tree_info = select_top_k_tokens(
                 i, topk_p, topk_index, hidden_states, scores, self.topk
             )
+            print(f"[DEBUG NON-OVERLAP] Step {i}: input_ids (selected tokens)={input_ids}")
             score_list.append(tree_info[0])
             token_list.append(tree_info[1])
             parents_list.append(tree_info[2])
 
             # We don't need to run the last forward. we get 1 token from draft prefill and (#spec steps - 1) tokens here
             if i == self.speculative_num_steps - 1:
+                print(f"[DEBUG NON-OVERLAP] Skipping last forward pass\n")
                 break
 
             # Set inputs
             forward_batch.input_ids = input_ids
+            print(f"[DEBUG NON-OVERLAP] Step {i}: out_cache_loc[{i}] (where to store KV)={out_cache_loc[i]}")
             # This is a temporary fix for the case that the user is using standalone
             # speculative decoding and the draft model architecture is gpt-oss. gpt-oss
             # rope kernel needs cache_loc to be contiguous.
@@ -602,9 +640,12 @@ class EAGLEWorker(TpModelWorker):
                 detect_nan(logits_output)
             probs = torch.softmax(logits_output.next_token_logits, dim=-1)
             topk_p, topk_index = fast_topk(probs, self.topk, dim=-1)
+            print(f"[DEBUG NON-OVERLAP] Step {i}: After forward, topk_index={topk_index}")
+            print(f"[DEBUG NON-OVERLAP] Step {i}: topk_p={topk_p}")
             if self.hot_token_id is not None:
                 topk_index = self.hot_token_id[topk_index]
             hidden_states = logits_output.hidden_states
+            print(f"[DEBUG NON-OVERLAP] Step {i} complete\n")
 
         parent_list, top_scores_index, draft_tokens = organize_draft_results(
             score_list, token_list, parents_list, self.speculative_num_draft_tokens

@@ -68,6 +68,7 @@ class EagleVerifyInput(SpecInput, EagleVerifyInputV2Mixin):
     seq_lens_sum: int
     seq_lens_cpu: torch.Tensor
     grammar: BaseGrammarObject = None
+    draft_out_cache_loc: Optional[torch.Tensor] = None  # V2 overlap: stores draft cache locs for cleanup
 
     def __post_init__(self):
         super().__init__(SpecInputType.EAGLE_VERIFY)
@@ -400,6 +401,12 @@ class EagleVerifyInput(SpecInput, EagleVerifyInputV2Mixin):
         verified_id = predict[accept_index]
         evict_mask = torch.full_like(self.draft_token, True, dtype=torch.bool)
         evict_mask[accept_index] = False
+        
+        # Debug logging for V2 overlap
+        if self.draft_out_cache_loc is not None:
+            print(f"[DEBUG verify] Total draft tokens: {len(self.draft_token)}, Accepted: {len(accept_index)}, To free: {evict_mask.sum().item()}")
+            print(f"[DEBUG verify] Accept lengths per sequence: {accept_length.tolist()}")
+        
         accept_length_cpu = accept_length.cpu()
         # FIXME: this `tolist()` fixes the numerical calculation consistency
         # try to unify the tensor representation and list representation
@@ -407,7 +414,14 @@ class EagleVerifyInput(SpecInput, EagleVerifyInputV2Mixin):
 
         if page_size == 1:
             # TODO: boolean array index leads to a device sync. Remove it.
-            token_to_kv_pool_allocator.free(batch.out_cache_loc[evict_mask])
+            # V2 overlap: use draft cache locations if available, otherwise use batch.out_cache_loc
+            cache_locs_to_free = self.draft_out_cache_loc if self.draft_out_cache_loc is not None else batch.out_cache_loc
+            tokens_to_free = cache_locs_to_free[evict_mask]
+            if self.draft_out_cache_loc is not None:
+                print(f"[DEBUG verify] Freeing {len(tokens_to_free)} unused draft tokens from draft_out_cache_loc: {tokens_to_free}")
+            else:
+                print(f"[DEBUG verify] Freeing {len(tokens_to_free)} unused tokens from batch.out_cache_loc: {tokens_to_free}")
+            token_to_kv_pool_allocator.free(tokens_to_free)
         else:
             if self.topk == 1:
                 # Only evict full empty page. Do not evict partial empty page
