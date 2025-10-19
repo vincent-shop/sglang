@@ -170,14 +170,57 @@ class EagleDraftInputV2Mixin:
         draft_model_runner: Any,
     ):
         seq_lens_cpu_ = batch.seq_lens_cpu
-        extend_num_tokens = len(batch.seq_lens) * num_draft_tokens
+        bs = len(batch.seq_lens)
+        total_tokens = predict.shape[0]
+        if bs > 0:
+            assert (
+                total_tokens % bs == 0
+            ), "The number of draft extend tokens must be divisible by batch size."
+            tokens_per_seq = total_tokens // bs
+        else:
+            tokens_per_seq = 0
+        extend_num_tokens = total_tokens
+
+        prev_seq_lens = batch.seq_lens.clone()
+        new_seq_lens = prev_seq_lens + tokens_per_seq
 
         batch.spec_info = self
         batch.input_ids = predict
-        batch.seq_lens = batch.seq_lens + num_draft_tokens
-        batch.seq_lens_cpu = batch.seq_lens_cpu + num_draft_tokens
+        if self.hidden_states is not None and self.hidden_states.shape[0] > 0:
+            hs_rows = self.hidden_states.shape[0]
+            if total_tokens % hs_rows == 0:
+                repeat_factor = total_tokens // hs_rows
+                if repeat_factor > 1:
+                    self.hidden_states = self.hidden_states.repeat_interleave(
+                        repeat_factor, dim=0
+                    )
+        if self.allocate_lens is not None:
+            self.allocate_lens = self.allocate_lens + tokens_per_seq
+
+        if bs == 0:
+            batch.out_cache_loc = torch.empty(
+                0, dtype=torch.int64, device=batch.input_ids.device
+            )
+        else:
+            batch.out_cache_loc = torch.empty(
+                extend_num_tokens,
+                dtype=torch.int64,
+                device=batch.input_ids.device,
+            )
+            assign_extend_cache_locs[(bs,)](
+                batch.req_pool_indices,
+                draft_model_runner.req_to_token_pool.req_to_token,
+                prev_seq_lens,
+                new_seq_lens,
+                batch.out_cache_loc,
+                draft_model_runner.req_to_token_pool.req_to_token.shape[1],
+                next_power_of_2(bs),
+            )
+
+        batch.seq_lens = new_seq_lens
+        batch.seq_lens_cpu = batch.seq_lens_cpu + tokens_per_seq
         batch.seq_lens_sum += extend_num_tokens
-        batch.extend_seq_lens = [num_draft_tokens for _ in range(len(batch.seq_lens))]
+        batch.extend_seq_lens = [tokens_per_seq for _ in range(len(batch.seq_lens))]
         batch.extend_prefix_lens = seq_lens_cpu_.tolist()
         batch.extend_num_tokens = extend_num_tokens
         batch.capture_hidden_mode = CaptureHiddenMode.FULL
