@@ -175,6 +175,7 @@ class EAGLEWorker(TpModelWorker):
             (), dtype=torch.int64, device=self.device
         )
         self.extend_lens = torch.empty((), dtype=torch.int64, device=self.device)
+        self.last_page_lens = torch.empty((), dtype=torch.int64, device=self.device)
 
     def init_attention_backend(self):
         # Create multi-step attn backends and cuda graph runners
@@ -389,6 +390,7 @@ class EAGLEWorker(TpModelWorker):
                     last_loc,
                     self.num_new_pages_per_topk,
                     self.extend_lens,
+                    self.last_page_lens,
                 ) = get_last_loc_large_page_size_large_top_k(
                     batch.req_to_token_pool.req_to_token,
                     batch.req_pool_indices,
@@ -397,6 +399,7 @@ class EAGLEWorker(TpModelWorker):
                     self.topk,
                     self.page_size,
                 )
+                self.last_page_lens = self.last_page_lens.to(torch.int64)
                 prefix_lens_cpu = batch.seq_lens_cpu
                 last_page_lens = prefix_lens_cpu % self.page_size
                 num_new_pages_per_topk = (
@@ -421,6 +424,30 @@ class EAGLEWorker(TpModelWorker):
                 )
             )
 
+        if self.page_size > 1 and self.topk > 1:
+            duplicate_cache_len = int(self.last_page_lens.sum().item() * (self.topk - 1))
+            if duplicate_cache_len > 0:
+                target_cache_loc = torch.empty(
+                    duplicate_cache_len, dtype=torch.int64, device=self.device
+                )
+                source_cache_loc = torch.empty(
+                    duplicate_cache_len, dtype=torch.int64, device=self.device
+                )
+            else:
+                target_cache_loc = torch.empty(1, dtype=torch.int64, device=self.device)
+                source_cache_loc = torch.empty(1, dtype=torch.int64, device=self.device)
+            last_page_lens_cumsum = torch.cumsum(
+                self.last_page_lens.to(torch.int64), dim=0
+            )
+            if last_page_lens_cumsum.numel() == 0:
+                last_page_lens_cumsum = torch.zeros(
+                    1, dtype=torch.int64, device=self.device
+                )
+        else:
+            target_cache_loc = torch.empty(1, dtype=torch.int64, device=self.device)
+            source_cache_loc = torch.empty(1, dtype=torch.int64, device=self.device)
+            last_page_lens_cumsum = torch.zeros(1, dtype=torch.int64, device=self.device)
+
         assign_draft_cache_locs[(num_seqs,)](
             batch.req_pool_indices,
             batch.req_to_token_pool.req_to_token,
@@ -428,6 +455,9 @@ class EAGLEWorker(TpModelWorker):
             self.extend_lens,
             self.num_new_pages_per_topk,
             out_cache_loc,
+            source_cache_loc,
+            target_cache_loc,
+            last_page_lens_cumsum,
             batch.req_to_token_pool.req_to_token.shape[1],
             self.topk,
             self.speculative_num_steps,
@@ -437,6 +467,10 @@ class EAGLEWorker(TpModelWorker):
         )
 
         if self.page_size > 1 and self.topk > 1:
+            if target_cache_loc.numel() > 0 and self.last_page_lens.sum().item() > 0:
+                self.draft_model_runner.token_to_kv_pool_allocator.get_kvcache().move_kv_cache(
+                    target_cache_loc, source_cache_loc
+                )
             # Remove padded slots
             out_cache_loc = out_cache_loc[
                 : num_seqs * self.topk * self.speculative_num_steps
@@ -983,4 +1017,11 @@ def get_last_loc_large_page_size_large_top_k(
         prefix_lens,
     )
 
-    return prefix_lens, seq_lens, last_loc, num_new_pages_per_topk, extend_lens
+    return (
+        prefix_lens,
+        seq_lens,
+        last_loc,
+        num_new_pages_per_topk,
+        extend_lens,
+        last_page_lens,
+    )

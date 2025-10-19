@@ -25,6 +25,7 @@ from sglang.srt.model_executor.model_runner import ModelRunner
 from sglang.srt.server_args import get_global_server_args
 from sglang.srt.speculative.spec_utils import (
     SIMULATE_ACC_LEN,
+    assign_draft_cache_locs,
     generate_simulated_accept_index,
 )
 from sglang.srt.utils.common import fast_topk, is_cuda, is_hip, next_power_of_2
@@ -137,23 +138,93 @@ class EagleDraftInputV2Mixin:
         num_steps: int,
     ):
         bs = len(batch.seq_lens)
+        device = batch.input_ids.device
+        token_to_kv_pool_allocator = draft_model_runner.token_to_kv_pool_allocator
+        page_size = (
+            token_to_kv_pool_allocator.page_size
+            if token_to_kv_pool_allocator is not None
+            else 1
+        )
 
-        # Assign cache locations
-        batch.out_cache_loc = torch.empty(
-            (bs * topk * num_steps,),
-            dtype=torch.int64,
-            device=batch.input_ids.device,
-        )
-        # FIXME(lsyin): align with the default code path
-        assign_draft_cache_locs_page_size_1[(bs,)](
-            batch.req_pool_indices,
-            req_to_token_pool.req_to_token,
-            batch.seq_lens,
-            batch.out_cache_loc,
-            req_to_token_pool.req_to_token.shape[1],
-            topk,
-            num_steps,
-        )
+        if page_size == 1 or topk == 1:
+            batch.out_cache_loc = torch.empty(
+                (bs * topk * num_steps,),
+                dtype=torch.int64,
+                device=device,
+            )
+            assign_draft_cache_locs_page_size_1[(bs,)](
+                batch.req_pool_indices,
+                req_to_token_pool.req_to_token,
+                batch.seq_lens,
+                batch.out_cache_loc,
+                req_to_token_pool.req_to_token.shape[1],
+                topk,
+                num_steps,
+            )
+        else:
+            prefix_lens = batch.seq_lens
+            last_page_lens = (prefix_lens % page_size).to(torch.int64)
+            num_new_pages_per_topk = (
+                last_page_lens + num_steps + page_size - 1
+            ) // page_size
+            num_new_pages_per_topk = num_new_pages_per_topk.to(torch.int32)
+            seq_lens = prefix_lens // page_size * page_size + num_new_pages_per_topk * (
+                page_size * topk
+            )
+            extend_lens = (seq_lens - prefix_lens).to(torch.int32)
+            total_extend_tokens = int(extend_lens.sum().item())
+            if total_extend_tokens == 0:
+                total_extend_tokens = bs * topk * num_steps
+            batch.out_cache_loc = torch.empty(
+                (total_extend_tokens,),
+                dtype=torch.int64,
+                device=device,
+            )
+            duplicate_cache_len = int(last_page_lens.sum().item() * (topk - 1))
+            if duplicate_cache_len > 0:
+                source_cache_loc = torch.empty(
+                    duplicate_cache_len, dtype=torch.int64, device=device
+                )
+                target_cache_loc = torch.empty(
+                    duplicate_cache_len, dtype=torch.int64, device=device
+                )
+            else:
+                source_cache_loc = torch.empty(1, dtype=torch.int64, device=device)
+                target_cache_loc = torch.empty(1, dtype=torch.int64, device=device)
+            if last_page_lens.numel() == 0:
+                last_page_lens_cumsum = torch.zeros(1, dtype=torch.int64, device=device)
+            else:
+                last_page_lens_cumsum = torch.cumsum(last_page_lens, dim=0)
+                if last_page_lens_cumsum.numel() == 0:
+                    last_page_lens_cumsum = torch.zeros(
+                        1, dtype=torch.int64, device=device
+                    )
+
+            assign_draft_cache_locs[(bs,)](
+                batch.req_pool_indices,
+                req_to_token_pool.req_to_token,
+                batch.seq_lens,
+                extend_lens,
+                num_new_pages_per_topk,
+                batch.out_cache_loc,
+                source_cache_loc,
+                target_cache_loc,
+                last_page_lens_cumsum,
+                req_to_token_pool.req_to_token.shape[1],
+                topk,
+                num_steps,
+                page_size,
+                next_power_of_2(bs),
+                next_power_of_2(num_steps),
+            )
+
+            if duplicate_cache_len > 0 and last_page_lens.sum().item() > 0:
+                if token_to_kv_pool_allocator is not None:
+                    token_to_kv_pool_allocator.get_kvcache().move_kv_cache(
+                        target_cache_loc, source_cache_loc
+                    )
+            batch.out_cache_loc = batch.out_cache_loc[: bs * topk * num_steps]
+            batch.out_cache_loc = batch.out_cache_loc.contiguous()
 
         # Get a forward batch
         batch.capture_hidden_mode = CaptureHiddenMode.LAST
