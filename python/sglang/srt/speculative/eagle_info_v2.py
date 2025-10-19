@@ -90,7 +90,8 @@ class EagleDraftInputV2Mixin:
 
         if page_size == 1:
             new_allocate_lens = batch.seq_lens + self.ALLOC_LEN_PER_DECODE
-            num_needed_tokens = (new_allocate_lens - self.allocate_lens).sum().item()
+            extend_lens = new_allocate_lens - self.allocate_lens
+            num_needed_tokens = extend_lens.sum().item()
             out_cache_loc = alloc_token_slots(batch.tree_cache, num_needed_tokens)
         else:
             last_loc = get_last_loc(
@@ -99,9 +100,11 @@ class EagleDraftInputV2Mixin:
                 self.allocate_lens,
             )
             new_allocate_lens = batch.seq_lens + self.ALLOC_LEN_PER_DECODE
+            extend_lens = new_allocate_lens - self.allocate_lens
             new_allocate_lens_cpu = new_allocate_lens.cpu()
             allocate_lens_cpu = self.allocate_lens.cpu()
-            extend_num_tokens = sum(new_allocate_lens_cpu - allocate_lens_cpu).item()
+            extend_lens_cpu = extend_lens.cpu()
+            extend_num_tokens = extend_lens_cpu.sum().item()
             out_cache_loc = alloc_paged_token_slots_extend(
                 batch.tree_cache,
                 self.allocate_lens,
@@ -121,6 +124,8 @@ class EagleDraftInputV2Mixin:
             batch.req_to_token_pool.req_to_token.shape[1],
             next_power_of_2(bs),
         )
+        self._pending_out_cache_loc = out_cache_loc
+        self._pending_extend_lens = extend_lens
         self.allocate_lens = new_allocate_lens
 
         # FIXME(lsyin): make this sync optional
@@ -138,22 +143,34 @@ class EagleDraftInputV2Mixin:
     ):
         bs = len(batch.seq_lens)
 
-        # Assign cache locations
-        batch.out_cache_loc = torch.empty(
-            (bs * topk * num_steps,),
-            dtype=torch.int64,
-            device=batch.input_ids.device,
-        )
-        # FIXME(lsyin): align with the default code path
-        assign_draft_cache_locs_page_size_1[(bs,)](
-            batch.req_pool_indices,
-            req_to_token_pool.req_to_token,
-            batch.seq_lens,
-            batch.out_cache_loc,
-            req_to_token_pool.req_to_token.shape[1],
-            topk,
-            num_steps,
-        )
+        tokens_per_seq = topk * num_steps
+        total_tokens = bs * tokens_per_seq
+        pending_out_cache = getattr(self, "_pending_out_cache_loc", None)
+        if (
+            pending_out_cache is not None
+            and total_tokens > 0
+            and pending_out_cache.numel() >= total_tokens
+        ):
+            out_cache_loc = pending_out_cache[:total_tokens]
+        else:
+            out_cache_loc = torch.empty(
+                (total_tokens,),
+                dtype=torch.int64,
+                device=batch.input_ids.device,
+            )
+            if total_tokens > 0:
+                assign_draft_cache_locs_page_size_1[(bs,)](
+                    batch.req_pool_indices,
+                    req_to_token_pool.req_to_token,
+                    batch.seq_lens,
+                    out_cache_loc,
+                    req_to_token_pool.req_to_token.shape[1],
+                    topk,
+                    num_steps,
+                )
+        batch.out_cache_loc = out_cache_loc
+        self._pending_out_cache_loc = None
+        self._pending_extend_lens = None
 
         # Get a forward batch
         batch.capture_hidden_mode = CaptureHiddenMode.LAST
