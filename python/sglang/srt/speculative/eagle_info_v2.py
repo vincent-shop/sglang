@@ -58,6 +58,30 @@ def assign_draft_cache_locs_page_size_1(
     topk: tl.constexpr,
     speculative_num_steps: tl.constexpr,
 ):
+    """
+    Triton GPU kernel that assigns KV cache locations for EAGLE draft tokens.
+
+    WHY THIS EXISTS: During draft phase, we need to tell the draft model where to store
+    its KV cache for the speculative tokens. This kernel reads the existing KV cache
+    indices from req_to_token pool and writes them into out_cache_loc buffer.
+
+    SIMPLIFIED VERSION LIMITATION: This assumes topk=1 (linear chain) because it uses
+    copy_len = topk * speculative_num_steps, which only works when all tokens form a
+    sequential chain. For topk>1, we need tree structure awareness (different branches
+    need different cache layouts).
+
+    WHEN IT'S CALLED: Called in prepare_for_v2_draft() before running draft model forward.
+    This happens in the overlap scheduler's forward stream while CPU is preparing the
+    next verify batch.
+
+    WHAT IT DOES:
+    1. Calculates how many KV slots to copy (copy_len = topk * num_steps)
+    2. Reads existing KV cache indices from req_to_token pool starting at seq_lens[pid]
+    3. Writes these indices to out_cache_loc for the draft model to use
+
+    THE BUG: When topk>1, treating tree as linear causes wrong KV cache layout,
+    leading to corrupted attention patterns and gibberish output.
+    """
     BLOCK_SIZE: tl.constexpr = 128
     pid = tl.program_id(axis=0)
 
@@ -79,7 +103,41 @@ def assign_draft_cache_locs_page_size_1(
 
 @dataclass
 class EagleDraftInputV2Mixin:
+    """
+    V2 mixin for EagleDraftInput that adds overlap-specific methods.
+
+    WHY THIS EXISTS: The overlap scheduler requires different preparation logic than
+    the sequential non-overlap version. This mixin adds V2-specific methods without
+    modifying the base EagleDraftInput class.
+
+    MIXED INTO: EagleDraftInput (defined in eagle_info.py)
+
+    KEY DIFFERENCE FROM V1: Uses FutureMap to store/retrieve draft outputs between
+    iterations, enabling CPU-GPU overlap.
+    """
+
     def prepare_for_decode(self: EagleDraftInput, batch: ScheduleBatch):
+        """
+        Pre-allocates KV cache slots for the next decode iteration.
+
+        WHY THIS EXISTS: In overlap mode, we need to allocate KV cache BEFORE running
+        the draft model because the scheduler might already be preparing the next batch.
+        This happens in ScheduleBatch.prepare_for_decode() which is called on the
+        CPU while the previous batch is still running on GPU.
+
+        WHEN IT'S CALLED: Called by ScheduleBatch.prepare_for_decode() in the main
+        scheduler loop, before the batch is sent to the model worker.
+
+        WHAT IT DOES:
+        1. Waits for previous verify to finish (sync point via verify_done event)
+        2. Calculates how many new KV cache slots needed (ALLOC_LEN_PER_DECODE)
+        3. Allocates slots from tree_cache
+        4. Updates req_to_token_pool to include new allocations
+        5. Updates allocate_lens to track total allocated space
+
+        OVERLAP BENEFIT: This work happens on CPU while GPU is busy with previous batch,
+        reducing idle time.
+        """
         from sglang.srt.speculative.spec_utils import assign_req_to_token_pool
 
         bs = batch.batch_size()
@@ -138,6 +196,28 @@ class EagleDraftInputV2Mixin:
         topk: int,
         num_steps: int,
     ):
+        """
+        Prepares ForwardBatch for running the draft model in V2 overlap mode.
+
+        WHY THIS EXISTS: The draft phase needs to set up KV cache locations and
+        positions for the draft model's forward pass. In overlap mode, this preparation
+        happens while the GPU may still be executing the previous verify batch.
+
+        WHEN IT'S CALLED: Called by EagleDraftWorker.draft() at the start of draft phase.
+
+        WHAT IT DOES:
+        1. Allocates out_cache_loc buffer (bs * topk * num_steps slots)
+        2. Calls assign_draft_cache_locs_page_size_1 kernel to fill cache locations
+           ⚠️ THIS IS THE BUG: Kernel assumes topk=1, doesn't handle tree structure
+        3. Sets positions for each token (seq_lens repeated topk times)
+        4. Creates ForwardBatch for draft model
+        5. Checks if CUDA graph can be used
+
+        THE BUG: Line using assign_draft_cache_locs_page_size_1 should use the full
+        assign_draft_cache_locs kernel to properly handle topk>1 tree structure.
+
+        Returns: (forward_batch, can_cuda_graph) tuple
+        """
         bs = len(batch.seq_lens)
 
         # Assign cache locations
@@ -171,6 +251,31 @@ class EagleDraftInputV2Mixin:
         num_draft_tokens: int,
         draft_model_runner: Any,
     ):
+        """
+        Prepares ForwardBatch for draft extend phase after verification completes.
+
+        WHY THIS EXISTS: After target model verifies and accepts some tokens, we need to
+        run the draft model in "extend" mode to fill its KV cache with the accepted tokens.
+        This is necessary because the draft model's KV cache only had speculative tokens,
+        but now we know which ones were actually accepted and need to properly cache them.
+
+        WHEN IT'S CALLED: Called by EagleDraftWorker._draft_extend_for_decode() after
+        verification completes. This runs in the plan_stream (separate CUDA stream) to
+        prepare while GPU might be busy.
+
+        WHAT IT DOES:
+        1. Updates batch.input_ids with all accepted tokens (predict)
+        2. Updates seq_lens to include all draft tokens (temporarily, will be corrected)
+        3. Sets extend_seq_lens to num_draft_tokens for each sequence
+        4. Sets forward_mode to DRAFT_EXTEND_V2 (special mode for this phase)
+        5. Creates ForwardBatch and initializes attention backend metadata
+
+        THE EXTEND TRICK: We extend by num_draft_tokens, then later select only the
+        last token's hidden state (at accept_length - 1 position) because that's the
+        "real" next token that was verified.
+
+        Returns: ForwardBatch ready for draft extend forward pass
+        """
         seq_lens_cpu_ = batch.seq_lens_cpu
         extend_num_tokens = len(batch.seq_lens) * num_draft_tokens
 
@@ -191,12 +296,48 @@ class EagleDraftInputV2Mixin:
 
 @dataclass
 class EagleVerifyInputV2Mixin:
+    """
+    V2 mixin for EagleVerifyInput that adds overlap-specific verify preparation.
+
+    WHY THIS EXISTS: The verify phase in overlap mode needs special preparation
+    that can happen in a separate CUDA stream (plan_stream) while the GPU is
+    still executing the draft phase. This reduces CPU idle time.
+
+    MIXED INTO: EagleVerifyInput (defined in eagle_info.py)
+    """
+
     def prepare_for_v2_verify(
         self: EagleVerifyInput,
         req_to_token_pool: ReqToTokenPool,
         batch: ModelWorkerBatch,
         target_worker: TpModelWorker,
     ):
+        """
+        Prepares ForwardBatch for target model verification in overlap mode.
+
+        WHY THIS EXISTS: The verify phase needs to set up KV cache locations for all
+        draft tokens and prepare the attention backend. In overlap mode, this preparation
+        can happen in a separate CUDA stream (plan_stream) while the draft model is
+        still running, enabling true CPU-GPU overlap.
+
+        WHEN IT'S CALLED: Called by EAGLEWorkerV2.verify() inside plan_stream context.
+        This happens BEFORE the draft phase completes, enabling overlap.
+
+        WHAT IT DOES:
+        1. Sets batch.input_ids to all draft tokens from tree
+        2. Allocates out_cache_loc for all draft tokens (bs * draft_token_num)
+        3. Calls assign_extend_cache_locs kernel to get cache indices
+        4. Sets forward_mode to TARGET_VERIFY
+        5. Creates ForwardBatch for verification
+        6. Pre-plans attention backend (init_forward_metadata or replay_prepare)
+           ⚠️ This uses FUTURE VALUES - tree_mask/positions aren't ready yet!
+
+        THE OVERLAP TRICK: We plan with wrong tree_mask/positions (from previous batch),
+        then correct them later in update_verify_buffers_to_fill_after_draft() after
+        draft completes. This lets us start planning early for overlap.
+
+        Returns: (verify_forward_batch, can_run_cuda_graph) tuple
+        """
         # Assign cache locations
         bs = len(batch.req_pool_indices)
         batch.input_ids = self.draft_token
@@ -242,8 +383,31 @@ class EagleVerifyInputV2Mixin:
         logits_output: LogitsProcessorOutput,
     ):
         """
-        Verify and find accepted tokens based on logits output and batch
-        (which contains spec decoding information).
+        Verifies draft tokens against target model's predictions and finds accepted tokens.
+
+        WHY THIS EXISTS: This is the core verification logic of EAGLE. After the target
+        model processes all draft tokens in parallel, we need to traverse the tree and
+        determine which tokens to accept/reject based on agreement between draft and target.
+
+        WHEN IT'S CALLED: Called by EAGLEWorkerV2.verify() after target model completes
+        its forward pass.
+
+        WHAT IT DOES:
+        1. Reshapes draft_token into tree structure (bs, draft_token_num)
+        2. Creates output buffers (predict, accept_index, accept_length)
+        3. GREEDY MODE: Uses verify_tree_greedy - accepts if draft == argmax(target)
+        4. SAMPLING MODE: Uses tree_speculative_sampling_target_only for rejection sampling
+           - Applies temperature/top_k/top_p to target logits
+           - Walks tree using retrive_next_token/retrive_next_sibling pointers
+           - Accepts tokens probabilistically based on target vs draft distributions
+        5. Optionally simulates acceptance for testing (SIMULATE_ACC_LEN > 0)
+        6. Adds bonus token (always 1 extra token even if all draft rejected)
+
+        THE TREE WALK: The retrive_* tensors encode the tree structure and guide
+        traversal. At each node, we check if target accepts draft token, then follow
+        retrive_next_token (accept) or retrive_next_sibling (reject) pointer.
+
+        Returns: (predict, accept_length, accept_index) - the verified tokens
         """
         bs = len(batch.seq_lens)
         sampling_info = batch.sampling_info
@@ -349,6 +513,40 @@ def select_top_k_tokens_tmp(
     scores: torch.Tensor,
     topk: int,
 ):
+    """
+    Selects top-k tokens at each step of tree construction during draft forward.
+
+    WHY THIS EXISTS: EAGLE draft model runs multiple forward passes (num_steps times),
+    and at each step we need to expand the tree by selecting the best topk tokens from
+    each current branch. This builds the speculation tree level by level.
+
+    WHEN IT'S CALLED: Called inside EagleDraftWorker.draft_forward() loop for each of
+    speculative_num_steps iterations. This is the core tree-building logic.
+
+    WHAT IT DOES:
+    i=0 (First step after initial token):
+        - Takes topk best tokens: input_ids = topk_index.flatten()
+        - Duplicates hidden states topk times (each token needs its own state)
+        - Creates parent indices [-1, 0, 1, ...] where -1 is root
+
+    i>0 (Subsequent steps):
+        - For each of topk tokens, we predicted topk more → topk² candidates
+        - Computes combined scores: parent_score * child_score
+        - Selects best topk from topk² candidates
+        - Tracks which parent each selected token came from
+        - Updates parent indices for tree structure
+
+    THE TREE GROWTH: With topk=2:
+        Step 0: 1 → 2 tokens
+        Step 1: 2 → 4 candidates → select best 2
+        Step 2: 2 → 4 candidates → select best 2
+
+    FIXME NOTE: This is a duplicate of select_top_k_tokens in spec_utils.py and should
+    be unified to avoid code duplication.
+
+    Returns: (input_ids, hidden_states, scores, tree_info)
+        tree_info contains (scores, tokens, parent_indices) for tree construction
+    """
     # FIXME(lsyin): remove this duplicate code
     if i == 0:
         # The first step after extend
@@ -397,6 +595,28 @@ def fill_new_verified_id(
     new_verified_id,
     num_draft_tokens: tl.constexpr,
 ):
+    """
+    Triton kernel that extracts the last accepted token ID for each sequence.
+
+    WHY THIS EXISTS: After verification, we have a flattened array of ALL accepted tokens
+    across the batch. We need to extract just the LAST accepted token for each sequence
+    because that's the verified token we'll use as input for the next draft iteration.
+
+    WHEN IT'S CALLED: Called in EAGLEWorkerV2.verify() after sample() completes, before
+    constructing next_draft_input.
+
+    WHAT IT DOES:
+    For each sequence (pid):
+        1. Reads how many tokens were accepted (accept_lens[pid])
+        2. Calculates index of last accepted token: pid * num_draft_tokens + accept_length - 1
+        3. Reads that token from verified_id array
+        4. Writes to new_verified_id[pid]
+
+    EXAMPLE: If sequence 0 accepted 3 tokens and num_draft_tokens=6:
+        verified_id index = 0 * 6 + 3 - 1 = 2 (the 3rd accepted token)
+
+    NOTE: Cannot fuse accept_lens in-place operations here because kernel reads it.
+    """
     # NOTE: we cannot fuse any in-place operations of `accept_lens` inside this kernel
     # because this kernel reads accept_lens
     pid = tl.program_id(axis=0)
@@ -414,6 +634,32 @@ def fill_accepted_out_cache_loc(
     accepted_out_cache_loc,
     size_upper: tl.constexpr,
 ):
+    """
+    Triton kernel that maps accepted token indices to their KV cache locations.
+
+    WHY THIS EXISTS: After verification, accept_index tells us WHICH tokens in the tree
+    were accepted (by their position in draft_token array). We need to map these
+    positions to their actual KV cache locations so we can move the KV cache data
+    to the target model's cache.
+
+    WHEN IT'S CALLED: Called in EAGLEWorkerV2.move_accepted_tokens_to_target_kvcache()
+    when page_size=1 (currently not used in V2, but prepared for future use).
+
+    WHAT IT DOES:
+    For each accepted position (pid):
+        1. Counts how many tokens before pid were accepted (by checking accept_index)
+        2. Uses this count as destination index (dst)
+        3. Reads source index from accept_index[pid]
+        4. If valid (src > -1), reads cache location from out_cache_loc[src]
+        5. Writes to compacted output array accepted_out_cache_loc[dst]
+
+    EXAMPLE: accept_index = [0, -1, 2, 3, -1, 5]
+        Position 0: dst=0, src=0 → accepted_out_cache_loc[0] = out_cache_loc[0]
+        Position 2: dst=1, src=2 → accepted_out_cache_loc[1] = out_cache_loc[2]
+        Position 3: dst=2, src=3 → accepted_out_cache_loc[2] = out_cache_loc[3]
+
+    RESULT: Compacts sparse accepted tokens into dense array for efficient KV cache move.
+    """
     pid = tl.program_id(axis=0)
     offset = tl.arange(0, size_upper)
 
@@ -435,6 +681,32 @@ def assign_extend_cache_locs(
     pool_len: tl.constexpr,
     bs_upper: tl.constexpr,
 ):
+    """
+    Triton kernel that assigns KV cache locations for extend operations.
+
+    WHY THIS EXISTS: During verify phase and draft extend phase, we need to allocate
+    KV cache for a range of tokens [start_offset, end_offset). This kernel reads the
+    cache indices from req_to_token pool and writes them to out_cache_loc in a
+    compacted, batch-aware manner.
+
+    WHEN IT'S CALLED:
+    1. In prepare_for_v2_verify() - for all draft tokens that need verification
+    2. In move_accepted_tokens_to_target_kvcache() - for accepted tokens
+
+    WHAT IT DOES:
+    For each sequence (pid):
+        1. Reads start and end positions for this sequence
+        2. Calculates output offset by summing lengths of all previous sequences
+           (This creates a compacted output without gaps)
+        3. Reads cache indices from req_to_token[req_pool_idx][start:end]
+        4. Writes to out_cache_loc at compacted position
+
+    EXAMPLE with 2 sequences extending by 3 and 5 tokens:
+        Seq 0: reads indices [10,11,12], writes to out_cache_loc[0:3]
+        Seq 1: reads indices [20,21,22,23,24], writes to out_cache_loc[3:8]
+
+    COMPACTION BENEFIT: Output is dense array with no gaps, efficient for batched operations.
+    """
     BLOCK_SIZE: tl.constexpr = 32
     pid = tl.program_id(axis=0)
     kv_start = tl.load(start_offset + pid)
