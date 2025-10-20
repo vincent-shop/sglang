@@ -5,6 +5,7 @@
 #include <flashinfer/vec_dtypes.cuh>
 
 #include "utils.h"
+#include "cutlass_extensions/epilogue/thread/fused_activations.h"
 
 template <int THREADS_PER_SUBWARP>
 __device__ __forceinline__ float GroupReduceMax(float val, const int tid) {
@@ -32,7 +33,7 @@ __device__ __forceinline__ float GroupReduceMax(float val, const int tid) {
 __device__ __forceinline__ float silu(const float& val) {
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 1000)
   float half = 0.5f * val;
-  float t = __tanhf(half);
+  float t = cutlass::epilogue::thread::tanh_opt(half);
   return half * (1.0f + t);
 #else
   return val / (1.0f + __expf(-val));
