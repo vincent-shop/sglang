@@ -25,6 +25,7 @@ from sglang.srt.model_executor.model_runner import ModelRunner
 from sglang.srt.server_args import get_global_server_args
 from sglang.srt.speculative.spec_utils import (
     SIMULATE_ACC_LEN,
+    assign_draft_cache_locs,
     generate_simulated_accept_index,
 )
 from sglang.srt.utils.common import fast_topk, is_cuda, is_hip, next_power_of_2
@@ -46,59 +47,6 @@ if is_cuda():
     from sgl_kernel.top_k import fast_topk
 elif is_hip():
     from sgl_kernel import verify_tree_greedy
-
-
-@triton.jit
-def assign_draft_cache_locs_page_size_1(
-    req_pool_indices,
-    req_to_token,
-    seq_lens,
-    out_cache_loc,
-    pool_len: tl.constexpr,
-    topk: tl.constexpr,
-    speculative_num_steps: tl.constexpr,
-):
-    """
-    Triton GPU kernel that assigns KV cache locations for EAGLE draft tokens.
-
-    WHY THIS EXISTS: During draft phase, we need to tell the draft model where to store
-    its KV cache for the speculative tokens. This kernel reads the existing KV cache
-    indices from req_to_token pool and writes them into out_cache_loc buffer.
-
-    SIMPLIFIED VERSION LIMITATION: This assumes topk=1 (linear chain) because it uses
-    copy_len = topk * speculative_num_steps, which only works when all tokens form a
-    sequential chain. For topk>1, we need tree structure awareness (different branches
-    need different cache layouts).
-
-    WHEN IT'S CALLED: Called in prepare_for_v2_draft() before running draft model forward.
-    This happens in the overlap scheduler's forward stream while CPU is preparing the
-    next verify batch.
-
-    WHAT IT DOES:
-    1. Calculates how many KV slots to copy (copy_len = topk * num_steps)
-    2. Reads existing KV cache indices from req_to_token pool starting at seq_lens[pid]
-    3. Writes these indices to out_cache_loc for the draft model to use
-
-    THE BUG: When topk>1, treating tree as linear causes wrong KV cache layout,
-    leading to corrupted attention patterns and gibberish output.
-    """
-    BLOCK_SIZE: tl.constexpr = 128
-    pid = tl.program_id(axis=0)
-
-    copy_len = topk * speculative_num_steps
-    out_cache_ptr = out_cache_loc + pid * topk * speculative_num_steps
-
-    # Copy from req_to_token to out_cache_loc
-    kv_start = tl.load(seq_lens + pid)
-    token_pool = req_to_token + tl.load(req_pool_indices + pid) * pool_len
-    num_loop = tl.cdiv(copy_len, BLOCK_SIZE)
-    # NOTE: num_loop is never provided
-    # so this path is not used yet
-    for i in range(num_loop):
-        copy_offset = tl.arange(0, BLOCK_SIZE) + i * BLOCK_SIZE
-        mask = copy_offset < copy_len
-        data = tl.load(token_pool + kv_start + copy_offset, mask=mask)
-        tl.store(out_cache_ptr + copy_offset, data, mask=mask)
 
 
 @dataclass
@@ -147,7 +95,6 @@ class EagleDraftInputV2Mixin:
         batch.maybe_wait_verify_done()
 
         page_size = batch.token_to_kv_pool_allocator.page_size
-
         if page_size == 1:
             new_allocate_lens = batch.seq_lens + self.ALLOC_LEN_PER_DECODE
             num_needed_tokens = (new_allocate_lens - self.allocate_lens).sum().item()
@@ -207,14 +154,11 @@ class EagleDraftInputV2Mixin:
 
         WHAT IT DOES:
         1. Allocates out_cache_loc buffer (bs * topk * num_steps slots)
-        2. Calls assign_draft_cache_locs_page_size_1 kernel to fill cache locations
-           ⚠️ THIS IS THE BUG: Kernel assumes topk=1, doesn't handle tree structure
+        2. Uses assign_draft_cache_locs kernel to fill cache locations with tree-aware
+           layout so topk>1 works correctly even with overlap
         3. Sets positions for each token (seq_lens repeated topk times)
         4. Creates ForwardBatch for draft model
         5. Checks if CUDA graph can be used
-
-        THE BUG: Line using assign_draft_cache_locs_page_size_1 should use the full
-        assign_draft_cache_locs kernel to properly handle topk>1 tree structure.
 
         Returns: (forward_batch, can_cuda_graph) tuple
         """
@@ -226,15 +170,43 @@ class EagleDraftInputV2Mixin:
             dtype=torch.int64,
             device=batch.input_ids.device,
         )
-        # FIXME(lsyin): align with the default code path
-        assign_draft_cache_locs_page_size_1[(bs,)](
+        token_allocator = getattr(draft_model_runner, "token_to_kv_pool_allocator", None)
+        if token_allocator is None:
+            raise RuntimeError(
+                "Draft model runner is missing token_to_kv_pool_allocator; "
+                "cannot determine page_size for EAGLE overlap draft preparation."
+            )
+
+        page_size = getattr(token_allocator, "page_size", 1)
+        if page_size != 1 and topk > 1:
+            raise NotImplementedError(
+                "EAGLE overlap mode currently expects page_size == 1. "
+                "Support for page_size > 1 will be added separately."
+            )
+
+        extend_lens = torch.full(
+            (bs,),
+            topk * num_steps,
+            dtype=torch.int64,
+            device=batch.seq_lens.device,
+        )
+        num_new_pages_per_topk = torch.ones(
+            (bs,), dtype=torch.int64, device=batch.seq_lens.device
+        )
+
+        assign_draft_cache_locs[(bs,)](
             batch.req_pool_indices,
             req_to_token_pool.req_to_token,
             batch.seq_lens,
+            extend_lens,
+            num_new_pages_per_topk,
             batch.out_cache_loc,
             req_to_token_pool.req_to_token.shape[1],
             topk,
             num_steps,
+            page_size,
+            next_power_of_2(bs),
+            next_power_of_2(num_steps),
         )
 
         # Get a forward batch
