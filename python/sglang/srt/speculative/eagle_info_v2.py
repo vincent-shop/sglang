@@ -68,6 +68,8 @@ def assign_draft_cache_locs_page_size_1(
     kv_start = tl.load(seq_lens + pid)
     token_pool = req_to_token + tl.load(req_pool_indices + pid) * pool_len
     num_loop = tl.cdiv(copy_len, BLOCK_SIZE)
+    # NOTE: num_loop is never provided
+    # so this path is not used yet
     for i in range(num_loop):
         copy_offset = tl.arange(0, BLOCK_SIZE) + i * BLOCK_SIZE
         mask = copy_offset < copy_len
