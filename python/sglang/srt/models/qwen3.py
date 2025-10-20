@@ -1,5 +1,6 @@
 # Adapted from qwen2.py
 import logging
+import math
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import torch
@@ -129,6 +130,7 @@ class Qwen3Attention(nn.Module):
             prefix=add_prefix("attn", prefix),
         )
         self.alt_stream = alt_stream
+        self._cached_yarn_params: Optional[Tuple[float, float, float, float]] = None
 
     def _apply_qk_norm(
         self, q: torch.Tensor, k: torch.Tensor
@@ -152,6 +154,116 @@ class Qwen3Attention(nn.Module):
         k = k_by_head.view(k.shape)
         return q, k
 
+    def _can_use_fused_qk_norm(self, qkv: torch.Tensor, positions: torch.Tensor) -> bool:
+        if not qkv.is_cuda or positions.device != qkv.device:
+            return False
+        if qkv.dtype != torch.bfloat16:
+            return False
+        if self.head_dim not in (64, 128, 256):
+            return False
+        ops_namespace = getattr(torch.ops, "sgl_kernel", None)
+        if ops_namespace is None or not hasattr(ops_namespace, "fused_qk_norm_rope"):
+            return False
+        last_dim = qkv.shape[-1]
+        if last_dim == 0:
+            return False
+        num_tokens = qkv.numel() // last_dim
+        return positions.numel() == num_tokens
+
+    def _compute_yarn_parameters(self) -> Tuple[float, float, float, float]:
+        rope_scaling = self.rope_scaling or {}
+        rope_type = rope_scaling.get("rope_type") or rope_scaling.get("type")
+        if rope_type != "yarn":
+            return 1.0, 0.0, 0.0, 1.0
+
+        factor = float(rope_scaling.get("factor", 1.0))
+        base = float(self.rope_theta)
+        partial_rotary_factor = float(rope_scaling.get("partial_rotary_factor", 1.0))
+        dim = max(int(round(self.head_dim * partial_rotary_factor)), 1)
+
+        original_max = rope_scaling.get("original_max_position_embeddings")
+        if original_max is not None:
+            factor = float(self.max_position_embeddings) / float(original_max)
+            max_positions = float(original_max)
+        else:
+            max_positions = float(self.max_position_embeddings)
+
+        attention_factor = rope_scaling.get("attention_factor")
+        mscale = rope_scaling.get("mscale")
+        mscale_all_dim = rope_scaling.get("mscale_all_dim")
+
+        def get_mscale(scale: float, coeff: float = 1.0) -> float:
+            if scale <= 1.0:
+                return 1.0
+            return 0.1 * coeff * math.log(scale) + 1.0
+
+        if attention_factor is None:
+            if mscale is not None and mscale_all_dim is not None:
+                attention_factor = float(
+                    get_mscale(factor, mscale) / get_mscale(factor, mscale_all_dim)
+                )
+            else:
+                attention_factor = get_mscale(factor)
+
+        beta_fast = float(rope_scaling.get("beta_fast", 32))
+        beta_slow = float(rope_scaling.get("beta_slow", 1))
+
+        def find_correction_dim(num_rot: float) -> float:
+            return (
+                dim
+                * math.log(max_positions / (num_rot * 2.0 * math.pi))
+                / (2.0 * math.log(base))
+            )
+
+        truncate = rope_scaling.get("truncate", True)
+        low = find_correction_dim(beta_fast)
+        high = find_correction_dim(beta_slow)
+        if truncate:
+            low = math.floor(low)
+            high = math.ceil(high)
+
+        low = max(low, 0.0)
+        high = min(high, dim - 1.0)
+        return float(factor), float(low), float(high), float(attention_factor)
+
+    def _get_yarn_parameters(self) -> Tuple[float, float, float, float]:
+        if self._cached_yarn_params is None:
+            self._cached_yarn_params = self._compute_yarn_parameters()
+        return self._cached_yarn_params
+
+    def _apply_fused_qk_norm_rope(
+        self, qkv: torch.Tensor, positions: torch.Tensor
+    ) -> Optional[torch.Tensor]:
+        qkv_contiguous = qkv if qkv.is_contiguous() else qkv.contiguous()
+        qkv_flat = qkv_contiguous.view(-1, qkv_contiguous.shape[-1])
+        pos_ids = positions.reshape(-1)
+        if pos_ids.dtype != torch.int32:
+            pos_ids = pos_ids.to(torch.int32)
+        pos_ids = pos_ids.contiguous()
+        factor, low, high, attention_factor = self._get_yarn_parameters()
+        try:
+            torch.ops.sgl_kernel.fused_qk_norm_rope(
+                qkv_flat,
+                self.num_heads,
+                self.num_kv_heads,
+                self.num_kv_heads,
+                self.head_dim,
+                float(self.q_norm.variance_epsilon),
+                self.q_norm.weight,
+                self.k_norm.weight,
+                float(self.rope_theta),
+                True,
+                pos_ids,
+                factor,
+                low,
+                high,
+                attention_factor,
+            )
+        except RuntimeError as err:
+            logger.debug("fused_qk_norm_rope fallback triggered: %s", err)
+            return None
+        return qkv_contiguous
+
     def forward(
         self,
         positions: torch.Tensor,
@@ -159,9 +271,15 @@ class Qwen3Attention(nn.Module):
         forward_batch: ForwardBatch,
     ) -> torch.Tensor:
         qkv, _ = self.qkv_proj(hidden_states)
+        fused_qkv = None
+        if self._can_use_fused_qk_norm(qkv, positions):
+            fused_qkv = self._apply_fused_qk_norm_rope(qkv, positions)
+            if fused_qkv is not None:
+                qkv = fused_qkv
         q, k, v = qkv.split([self.q_size, self.kv_size, self.kv_size], dim=-1)
-        q, k = self._apply_qk_norm(q, k)
-        q, k = self.rotary_emb(positions, q, k)
+        if fused_qkv is None:
+            q, k = self._apply_qk_norm(q, k)
+            q, k = self.rotary_emb(positions, q, k)
         attn_output = self.attn(q, k, v, forward_batch)
         output, _ = self.o_proj(attn_output)
         return output
