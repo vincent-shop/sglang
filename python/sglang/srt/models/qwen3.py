@@ -260,7 +260,7 @@ class Qwen3Attention(nn.Module):
                 attention_factor,
             )
         except RuntimeError as err:
-            logger.debug("fused_qk_norm_rope fallback triggered: %s", err)
+            logger.warning("fused_qk_norm_rope fallback triggered: %s", err)
             return None
         return qkv_contiguous
 
