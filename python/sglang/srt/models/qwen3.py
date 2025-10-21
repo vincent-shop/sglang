@@ -87,6 +87,7 @@ class Qwen3Attention(nn.Module):
         self.scaling = self.head_dim**-0.5
         self.rope_theta = rope_theta
         self.max_position_embeddings = max_position_embeddings
+        self.rope_scaling = rope_scaling
         self.tp_rank = get_tensor_model_parallel_rank()
 
         self.q_norm = RMSNorm(self.head_dim, eps=rms_norm_eps)
