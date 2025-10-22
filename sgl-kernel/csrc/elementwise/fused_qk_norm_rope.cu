@@ -44,8 +44,9 @@ struct PackedUint<4> {
 };
 
 __device__ __forceinline__ float warp_reduce_sum(float value) {
-  for (int offset = 16; offset > 0; offset >>= 1) {
-    value += __shfl_down_sync(0xffffffff, value, offset);
+#pragma unroll
+  for (int mask = 16; mask > 0; mask >>= 1) {
+    value += __shfl_xor_sync(0xffffffff, value, mask, 32);
   }
   return value;
 }
@@ -406,4 +407,3 @@ void fused_qk_norm_rope(
       static_cast<float>(attention_factor),
       stream);
 }
-
