@@ -43,6 +43,7 @@ from sglang.srt.server_args import get_global_server_args
 from sglang.srt.utils import (
     LazyValue,
     add_prefix,
+    get_compiler_backend,
     is_cuda,
     is_npu,
     make_layers,
@@ -146,6 +147,7 @@ def fused_qkvzba_split_reshape_cat_kernel(
         tl.store(blk_a_st_ptr, tl.load(blk_a_ptr))
 
 
+@torch.compile(dynamic=True, backend=get_compiler_backend())
 def fused_qkvzba_split_reshape_cat(
     mixed_qkvz,
     mixed_ba,
@@ -347,6 +349,7 @@ class Qwen3GatedDeltaNet(nn.Module):
             tp_size=self.attn_tp_size,
         )
 
+    @torch.compile(dynamic=True, backend=get_compiler_backend())
     def fix_query_key_value_ordering(self, mixed_qkvz, mixed_ba):
         """
         Derives `query`, `key` and `value` tensors from `mixed_qkvzba`.
@@ -700,6 +703,19 @@ class Qwen3HybridAttentionDecoderLayer(nn.Module):
 
         self.alt_stream = alt_stream
 
+    @torch.compile(dynamic=True, backend=get_compiler_backend())
+    def _norm_qk_no_stream(
+        self, q: torch.Tensor, k: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Pure tensor branch for QK normalization without async stream."""
+        q_by_head = q.reshape(-1, self.head_dim)
+        q_by_head = self.q_norm(q_by_head)
+        k_by_head = k.reshape(-1, self.head_dim)
+        k_by_head = self.k_norm(k_by_head)
+        q = q_by_head.view(q.shape)
+        k = k_by_head.view(k.shape)
+        return q, k
+
     def _apply_qk_norm(
         self, q: torch.Tensor, k: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -713,14 +729,11 @@ class Qwen3HybridAttentionDecoderLayer(nn.Module):
                 k_by_head = k.reshape(-1, self.head_dim)
                 k_by_head = self.k_norm(k_by_head)
             current_stream.wait_stream(self.alt_stream)
+            q = q_by_head.view(q.shape)
+            k = k_by_head.view(k.shape)
+            return q, k
         else:
-            q_by_head = q.reshape(-1, self.head_dim)
-            q_by_head = self.q_norm(q_by_head)
-            k_by_head = k.reshape(-1, self.head_dim)
-            k_by_head = self.k_norm(k_by_head)
-        q = q_by_head.view(q.shape)
-        k = k_by_head.view(k.shape)
-        return q, k
+            return self._norm_qk_no_stream(q, k)
 
     def self_attention(
         self,
