@@ -129,31 +129,82 @@ Ngram::~Ngram() {
 }
 
 std::vector<std::pair<TrieNode*, int32_t>> Ngram::match(const std::vector<int32_t>& tokens, size_t batch_size) const {
-  auto draft_token_num = param_.get_draft_token_num(batch_size);
   auto min_match_window_size = param_.get_min_match_window_size(batch_size);
-  auto max_match_window_size = param_.max_match_window_size;
-  std::vector<std::pair<TrieNode*, int32_t>> result;
-  result.reserve(param_.max_match_window_size - param_.min_match_window_size);
-  for (int32_t match_window_size = std::min(tokens.size(), param_.max_match_window_size);
-       match_window_size >= param_.min_match_window_size;
-       --match_window_size) {
-    auto start = tokens.data() + tokens.size() - match_window_size;
-    auto end = start + match_window_size;
-    auto cursor = root_;
-    while (start != end) {
-      auto iter = cursor->child.find(*start);
-      if (iter == cursor->child.end()) {
-        cursor = nullptr;
-        break;
+  auto max_match_window_size = static_cast<int32_t>(
+      std::min(tokens.size(), param_.max_match_window_size));
+  if (max_match_window_size < static_cast<int32_t>(min_match_window_size)) {
+    match_results_.clear();
+    return match_results_;
+  }
+
+  auto candidate_limit = static_cast<int32_t>(std::min(
+      {param_.branch_length,
+       static_cast<size_t>(max_match_window_size),
+       static_cast<size_t>(std::numeric_limits<int32_t>::max())}));
+  if (candidate_limit <= 0) {
+    match_results_.clear();
+    return match_results_;
+  }
+
+  match_states_.clear();
+  match_next_states_.clear();
+  auto reserve_size = std::min(static_cast<size_t>(candidate_limit), tokens.size());
+  match_states_.reserve(reserve_size);
+  match_next_states_.reserve(reserve_size);
+
+  for (int32_t token : tokens) {
+    match_next_states_.clear();
+    for (const auto& state : match_states_) {
+      if (state.second >= candidate_limit) {
+        continue;
       }
-      ++start;
-      cursor = iter->second;
+      auto iter = state.first->child.find(token);
+      if (iter != state.first->child.end()) {
+        match_next_states_.emplace_back(iter->second, state.second + 1);
+      }
     }
-    if (cursor) {
-      result.emplace_back(std::make_pair(cursor, match_window_size));
+    auto iter_root = root_->child.find(token);
+    if (iter_root != root_->child.end()) {
+      match_next_states_.emplace_back(iter_root->second, 1);
+    }
+    std::sort(
+        match_next_states_.begin(),
+        match_next_states_.end(),
+        [](const auto& lhs, const auto& rhs) {
+          if (lhs.first == rhs.first) {
+            return lhs.second < rhs.second;
+          }
+          return std::less<TrieNode*>()(lhs.first, rhs.first);
+        });
+    match_next_states_.erase(
+        std::unique(
+            match_next_states_.begin(),
+            match_next_states_.end(),
+            [](const auto& lhs, const auto& rhs) {
+              return lhs.first == rhs.first && lhs.second == rhs.second;
+            }),
+        match_next_states_.end());
+    match_states_.swap(match_next_states_);
+  }
+
+  match_results_.clear();
+  match_results_.reserve(match_states_.size());
+  for (const auto& state : match_states_) {
+    if (state.second >= static_cast<int32_t>(min_match_window_size) &&
+        state.second <= max_match_window_size) {
+      match_results_.emplace_back(state);
     }
   }
-  return result;
+  std::sort(
+      match_results_.begin(),
+      match_results_.end(),
+      [](const auto& lhs, const auto& rhs) {
+        if (lhs.second != rhs.second) {
+          return lhs.second > rhs.second;
+        }
+        return std::less<TrieNode*>()(lhs.first, rhs.first);
+      });
+  return match_results_;
 }
 
 void Ngram::squeeze(size_t count) {
