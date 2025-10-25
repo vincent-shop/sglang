@@ -27,11 +27,13 @@ def main(args):
         dtype=np.int32,
     )
     history = [row.tolist() for row in tokens]
-    for max_window in args.max_window:
+    for max_ngram in args.max_ngram:
+        if max_ngram < args.min_ngram:
+            continue
         cache = NgramCache(
             branch_length=args.branch_length,
             min_match_window_size=args.min_ngram,
-            max_match_window_size=max_window,
+            max_match_window_size=max_ngram,
             min_bfs_breadth=args.min_bfs_breadth,
             max_bfs_breadth=args.max_bfs_breadth,
             capacity=args.capacity,
@@ -39,7 +41,7 @@ def main(args):
         )
         cache.batch_put(history)
         cache.synchronize()
-        queries = [row[-max_window:].tolist() for row in history]
+        queries = [row[-max_ngram:].tolist() for row in history]
         for _ in range(args.warmup):
             cache.batch_get(queries)
         gc.collect()
@@ -49,7 +51,7 @@ def main(args):
                 args.num_req,
                 args.num_token,
                 args.min_ngram,
-                max_window,
+                max_ngram,
                 mean(measurements),
                 max(measurements),
             ]
