@@ -15,7 +15,10 @@ from sglang.srt.layers.attention.flashinfer_mla_backend import FlashInferMLAAttn
 from sglang.srt.layers.attention.utils import create_flashmla_kv_indices_triton
 from sglang.srt.layers.dp_attention import get_attention_tp_size
 from sglang.srt.model_executor.forward_batch_info import ForwardBatch, ForwardMode
-from sglang.srt.utils import is_cuda
+from sglang.srt.utils import is_cuda, is_flashinfer_available
+
+if is_flashinfer_available():
+    import flashinfer
 
 if TYPE_CHECKING:
     from sglang.srt.layers.radix_attention import RadixAttention
@@ -223,6 +226,62 @@ class CutlassMLABackend(FlashInferMLAAttnBackend):
     def get_cuda_graph_seq_len_fill_value(self):
         return 1
 
+    def quantize_and_rope_for_fp8(
+        self,
+        q_nope: torch.Tensor,
+        q_rope: torch.Tensor,
+        k_nope: torch.Tensor,
+        k_rope: torch.Tensor,
+        forward_batch: ForwardBatch,
+        cos_sin_cache: torch.Tensor,
+        is_neox: bool,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Quantize and apply RoPE for FP8 attention path.
+
+        This function handles the FP8 quantization and RoPE application for MLA attention.
+        It takes separate query/key nope and rope components, applies RoPE to the rope parts,
+        and quantizes all components to FP8.
+
+        Args:
+            q_nope: Query no-position-encoding component [seq_len, num_heads, kv_lora_rank]
+            q_rope: Query RoPE component [seq_len, num_heads, qk_rope_head_dim]
+            k_nope: Key no-position-encoding component [seq_len, kv_lora_rank] (no heads for MLA)
+            k_rope: Key RoPE component [seq_len, qk_rope_head_dim] (no heads for MLA)
+            forward_batch: Forward batch containing position information
+            cos_sin_cache: Precomputed cosine/sine cache for RoPE
+            is_neox: Whether to use NeoX-style RoPE (interleaved) or GPT-style (half rotation)
+
+        Returns:
+            tuple: (q_rope_out, q_nope_out, k_nope_out, k_rope_out) quantized to FP8
+        """
+        attn_dtype = torch.float8_e4m3fn
+
+        # Allocate output tensors with FP8 dtype
+        q_rope_out = q_rope.new_empty(q_rope.shape, dtype=attn_dtype)
+        q_nope_out = q_nope.new_empty(q_nope.shape, dtype=attn_dtype)
+        k_rope_out = k_rope.new_empty(k_rope.shape, dtype=attn_dtype)
+        k_nope_out = k_nope.new_empty(k_nope.shape, dtype=attn_dtype)
+
+        # Apply RoPE and quantize all components in a single fused kernel call
+        flashinfer.rope.mla_rope_quantize_fp8(
+            q_rope=q_rope,
+            k_rope=k_rope,
+            q_nope=q_nope,
+            k_nope=k_nope,
+            cos_sin_cache=cos_sin_cache,
+            pos_ids=forward_batch.positions,
+            is_neox=is_neox,
+            quantize_dtype=attn_dtype,
+            q_rope_out=q_rope_out,
+            k_rope_out=k_rope_out,
+            q_nope_out=q_nope_out,
+            k_nope_out=k_nope_out,
+            quant_scale_q=1.0,
+            quant_scale_kv=1.0,
+        )
+
+        return q_rope_out, q_nope_out, k_nope_out, k_rope_out
+
     def forward_decode(
         self,
         q: torch.Tensor,
@@ -234,8 +293,40 @@ class CutlassMLABackend(FlashInferMLAAttnBackend):
         # For multi-head latent attention
         q_rope: Optional[torch.Tensor] = None,
         k_rope: Optional[torch.Tensor] = None,
+        # For fused RoPE + FP8 quantization
+        cos_sin_cache: Optional[torch.Tensor] = None,
+        is_neox: Optional[bool] = False,
     ):
         cache_loc = forward_batch.out_cache_loc
+
+        # Check if we should use fused RoPE + FP8 quantization path
+        use_fused_rope_fp8 = (
+            self.data_type == torch.float8_e4m3fn
+            and cos_sin_cache is not None
+            and q_rope is not None
+            and k_rope is not None
+        )
+
+        if use_fused_rope_fp8:
+            # For FP8 path, we quantize and apply RoPE in a single fused kernel
+            # Note: RoPE application in deepseek_v2.py:forward_absorb_prepare is skipped for this path
+            # For MLA, k tensors have shape [seq_len, 1, dim] and need to be squeezed to [seq_len, dim]
+            q_rope_fp8, q_nope_fp8, k_nope_fp8, k_rope_fp8 = (
+                self.quantize_and_rope_for_fp8(
+                    q,
+                    q_rope,
+                    k.view(k.shape[0], -1) if k.dim() == 3 else k,
+                    k_rope.view(k_rope.shape[0], -1) if k_rope.dim() == 3 else k_rope,
+                    forward_batch,
+                    cos_sin_cache,
+                    is_neox,
+                )
+            )
+            # Override the inputs with quantized outputs
+            q = q_nope_fp8
+            q_rope = q_rope_fp8
+            k = k_nope_fp8
+            k_rope = k_rope_fp8
 
         if k is not None:
             assert v is not None
@@ -266,8 +357,13 @@ class CutlassMLABackend(FlashInferMLAAttnBackend):
             q_nope = reshaped_q[:, :, : layer.v_head_dim]
             q_rope = reshaped_q[:, :, layer.v_head_dim :]
 
-        q_nope = q_nope.to(self.q_data_type)
-        q_rope = q_rope.to(self.q_data_type)
+        # Only convert dtype if not already done by fused kernel
+        if not use_fused_rope_fp8:
+            q_nope = q_nope.to(self.q_data_type)
+            q_rope = q_rope.to(self.q_data_type)
+        else:
+            # Already in FP8 from fused kernel, no conversion needed
+            pass
 
         k_cache = forward_batch.token_to_kv_pool.get_key_buffer(layer.layer_id)
 

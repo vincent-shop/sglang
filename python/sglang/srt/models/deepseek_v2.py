@@ -1498,12 +1498,15 @@ class DeepseekV2AttentionMLA(nn.Module):
         output, _ = self.o_proj(attn_output)
         return output
 
-    def _fuse_rope_for_trtllm_mla(self, forward_batch: ForwardBatch) -> bool:
+    def _backend_supports_rope_fp8_fusion(self, forward_batch: ForwardBatch) -> bool:
         """
-        Check if we should skip rope and do fused rope+quantize for TRTLLM MLA decode in fp8_e4m3 path.
+        Check if we should skip rope and do fused rope+quantize for MLA backends in fp8_e4m3 path.
+        This applies to both TRTLLM MLA and Cutlass MLA backends during decode operations.
+        Requires FlashInfer to be available for the fused kernel.
         """
         return (
-            self.current_attention_backend == "trtllm_mla"
+            _is_flashinfer_available
+            and self.current_attention_backend in ("trtllm_mla", "cutlass_mla")
             and (
                 forward_batch.forward_mode.is_decode_or_idle()
                 or forward_batch.forward_mode.is_target_verify()
@@ -1632,7 +1635,7 @@ class DeepseekV2AttentionMLA(nn.Module):
 
         q_nope_out = q_nope_out.transpose(0, 1)
 
-        if not self._fuse_rope_for_trtllm_mla(forward_batch) and (
+        if not self._backend_supports_rope_fp8_fusion(forward_batch) and (
             not _use_aiter or not _is_gfx95_supported or self.use_nsa
         ):
             q_pe, k_pe = self.rotary_emb(positions, q_pe, k_pe)
@@ -1671,7 +1674,7 @@ class DeepseekV2AttentionMLA(nn.Module):
     ):
         if self.current_attention_backend in FORWARD_ABSORB_CORE_ATTENTION_BACKENDS:
             extra_args = {}
-            if self._fuse_rope_for_trtllm_mla(forward_batch):
+            if self._backend_supports_rope_fp8_fusion(forward_batch):
                 extra_args = {
                     "cos_sin_cache": self.rotary_emb.cos_sin_cache,
                     "is_neox": self.rotary_emb.is_neox_style,
@@ -1940,7 +1943,7 @@ class DeepseekV2AttentionMLA(nn.Module):
 
             q_nope_out = q_nope_out.transpose(0, 1)
 
-            if not self._fuse_rope_for_trtllm_mla(forward_batch) and (
+            if not self._backend_supports_rope_fp8_fusion(forward_batch) and (
                 not _use_aiter or not _is_gfx95_supported
             ):
                 q_pe, k_pe = self.rotary_emb(positions, q_pe, k_pe)
