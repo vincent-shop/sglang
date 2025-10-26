@@ -142,23 +142,31 @@ class Qwen3Attention(nn.Module):
     def _apply_qk_norm(
         self, q: torch.Tensor, k: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        # overlap qk norm
+        # Store original shapes for restoration
+        orig_q_shape = q.shape
+        orig_k_shape = k.shape
+
+        # Reshape to 3D: [total_tokens, num_heads, head_dim]
+        # This triggers FlashInfer's optimized warp-level QKRMSNorm kernel
+        # instead of the slower 2D CTA-based kernel
+        q_3d = q.view(-1, self.num_heads, self.head_dim)
+        k_3d = k.view(-1, self.num_kv_heads, self.head_dim)
+
+        # Apply QK normalization with optional stream overlap for CUDA graph mode
         if self.alt_stream is not None and get_is_capture_mode():
             current_stream = torch.cuda.current_stream()
             self.alt_stream.wait_stream(current_stream)
-            q_by_head = q.reshape(-1, self.head_dim)
-            q_by_head = self.q_norm(q_by_head)
+            q_normed = self.q_norm(q_3d)
             with torch.cuda.stream(self.alt_stream):
-                k_by_head = k.reshape(-1, self.head_dim)
-                k_by_head = self.k_norm(k_by_head)
+                k_normed = self.k_norm(k_3d)
             current_stream.wait_stream(self.alt_stream)
         else:
-            q_by_head = q.reshape(-1, self.head_dim)
-            q_by_head = self.q_norm(q_by_head)
-            k_by_head = k.reshape(-1, self.head_dim)
-            k_by_head = self.k_norm(k_by_head)
-        q = q_by_head.view(q.shape)
-        k = k_by_head.view(k.shape)
+            q_normed = self.q_norm(q_3d)
+            k_normed = self.k_norm(k_3d)
+
+        # Restore original shapes
+        q = q_normed.view(orig_q_shape)
+        k = k_normed.view(orig_k_shape)
         return q, k
 
     def forward(
