@@ -69,6 +69,7 @@ class DeepEPMoE(FusedMoE):
         prefix: str = "",
         activation: str = "silu",
         routed_scaling_factor: Optional[float] = None,
+        routing_method_type: int = 2,
     ):
         super().__init__(
             num_experts=num_experts,
@@ -82,6 +83,7 @@ class DeepEPMoE(FusedMoE):
             prefix=prefix,
             activation=activation,
             routed_scaling_factor=routed_scaling_factor,
+            routing_method_type=routing_method_type,
         )
 
         if _use_aiter or _is_npu:

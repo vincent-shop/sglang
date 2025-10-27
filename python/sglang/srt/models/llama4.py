@@ -110,6 +110,13 @@ class Llama4MoE(nn.Module):
             custom_routing_function=Llama4MoE.custom_routing_function,
         )
 
+        from sglang.srt.layers.moe import RoutingMethodType
+
+        if RoutingMethodType is not None:
+            routing_method_type = RoutingMethodType.Llama4
+        else:
+            routing_method_type = 3
+
         self.experts = FusedMoE(
             num_experts=config.num_local_experts,
             hidden_size=config.hidden_size,
@@ -119,6 +126,7 @@ class Llama4MoE(nn.Module):
             quant_config=quant_config,
             apply_router_weight_on_input=True,
             prefix=add_prefix("experts", prefix),
+            routing_method_type=routing_method_type,
         )
 
         self.shared_expert = LlamaMLP(

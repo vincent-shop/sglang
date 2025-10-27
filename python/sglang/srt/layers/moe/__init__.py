@@ -13,6 +13,12 @@ from sglang.srt.layers.moe.utils import (
     should_use_flashinfer_cutlass_moe_fp4_allgather,
     should_use_flashinfer_trtllm_moe,
 )
+from sglang.srt.utils import is_flashinfer_available
+
+if is_flashinfer_available():
+    from flashinfer import RoutingMethodType
+else:
+    RoutingMethodType = None
 
 __all__ = [
     "DeepEPMode",
@@ -20,6 +26,7 @@ __all__ = [
     "MoeRunner",
     "MoeRunnerConfig",
     "MoeRunnerBackend",
+    "RoutingMethodType",
     "initialize_moe_config",
     "get_moe_a2a_backend",
     "get_moe_runner_backend",

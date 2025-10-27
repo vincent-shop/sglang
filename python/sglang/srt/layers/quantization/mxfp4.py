@@ -638,6 +638,8 @@ class Mxfp4MoEMethod(FusedMoEMethodBase):
             top_k = topk_output.topk_config.top_k
             router_logits = topk_output.router_logits
 
+            routing_method_type = getattr(layer, "routing_method_type", 1)
+
             trtllm_gen_output = trtllm_fp4_block_scale_moe(
                 router_logits.to(torch.bfloat16),
                 None,  # routing_bias
@@ -664,7 +666,7 @@ class Mxfp4MoEMethod(FusedMoEMethodBase):
                 layer.num_local_experts,  # local num experts
                 None,
                 None,  # tile_tokens_dim
-                1,  # routing_method_type, renormalize
+                routing_method_type,
                 True,  # do finalize
             )[0]
             return StandardCombineInput(hidden_states=trtllm_gen_output)

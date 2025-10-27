@@ -98,6 +98,7 @@ class TopKConfig:
     torch_native: bool = False
     routed_scaling_factor: Optional[float] = None
     apply_routed_scaling_factor_on_output: bool = False
+    routing_method_type: Optional[int] = None
     output_format: Optional[TopKOutputFormat] = None
 
 

@@ -53,7 +53,7 @@ from sglang.srt.utils import (
 )
 
 if is_flashinfer_available():
-    from flashinfer import RoutingMethodType, fp4_quantize
+    from flashinfer import fp4_quantize
 
 _is_hip = is_hip()
 _is_cpu_amx_available = cpu_has_amx_support()
@@ -142,6 +142,7 @@ class FusedMoE(torch.nn.Module):
         gemm1_clamp_limit: Optional[float] = None,
         use_weight_loader_fused: bool = False,
         with_bias=False,
+        routing_method_type: int = 2,
     ):
         super().__init__()
         if params_dtype is None:
@@ -152,6 +153,7 @@ class FusedMoE(torch.nn.Module):
         self.hidden_size = hidden_size
         self.num_experts = num_experts
         self.num_fused_shared_experts = num_fused_shared_experts
+        self.routing_method_type = routing_method_type
 
         enable_flashinfer_cutlass_moe = get_moe_runner_backend().is_flashinfer_cutlass()
 
@@ -1070,7 +1072,7 @@ class FlashInferFP4MoE(FusedMoE):
             local_num_experts=self.num_local_experts,
             routed_scaling_factor=self.moe_runner_config.routed_scaling_factor,
             tile_tokens_dim=None,
-            routing_method_type=RoutingMethodType.DeepSeekV3,
+            routing_method_type=self.routing_method_type,
             do_finalize=True,
         )[0]
 
