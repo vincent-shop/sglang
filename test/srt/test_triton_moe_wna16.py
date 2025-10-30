@@ -244,3 +244,72 @@ def test_fused_moe_wn16(
     )
     torch_output = torch_moe(a, w1_ref, w2_ref, score, topk)
     torch.testing.assert_close(triton_output, torch_output, atol=2e-2, rtol=0)
+
+
+def test_fused_moe_w4a8():
+    torch.manual_seed(0)
+    m, n, k, e, topk = 16, 128, 128, 8, 2
+    dtype = torch.float16
+    group_size = 64
+
+    a = torch.randn((m, k), device="cuda", dtype=dtype) / 10
+    w1 = torch.randn((e, 2 * n, k), device="cuda", dtype=dtype) / 10
+    w2 = torch.randn((e, k, n), device="cuda", dtype=dtype) / 10
+    score = torch.randn((m, e), device="cuda", dtype=dtype)
+
+    w1_ref = w1.clone()
+    w2_ref = w2.clone()
+    w1_qweight = torch.empty((e, 2 * n, k // 2), device="cuda", dtype=torch.uint8)
+    w2_qweight = torch.empty((e, k, n // 2), device="cuda", dtype=torch.uint8)
+    w1_scales = torch.empty((e, 2 * n, k // group_size), device="cuda", dtype=dtype)
+    w2_scales = torch.empty((e, k, n // group_size), device="cuda", dtype=dtype)
+
+    for i in range(e * 2):
+        expert_id = i % e
+        if i // e == 0:
+            w, w_ref, w_qweight, w_scales = (
+                w1,
+                w1_ref,
+                w1_qweight,
+                w1_scales,
+            )
+        else:
+            w, w_ref, w_qweight, w_scales = (
+                w2,
+                w2_ref,
+                w2_qweight,
+                w2_scales,
+            )
+
+        weight, qweight, scales, _ = quantize_weights(
+            w[expert_id].T, "w4a16b8", group_size, False, False
+        )
+        weight = weight.T
+        qweight = qweight.T.contiguous().to(torch.uint8)
+        scales = scales.T
+
+        qweight = qweight[:, 1::2] * 16 + qweight[:, ::2]
+
+        w_ref[expert_id] = weight
+        w_qweight[expert_id] = qweight
+        w_scales[expert_id] = scales
+
+    topk_output = select_experts(
+        hidden_states=a,
+        router_logits=score,
+        topk_config=TopKConfig(top_k=topk),
+    )
+
+    triton_output = fused_moe(
+        a,
+        w1_qweight,
+        w2_qweight,
+        topk_output,
+        use_int4_w4a8=True,
+        w1_scale=w1_scales,
+        w2_scale=w2_scales,
+        block_shape=[0, group_size],
+    )
+
+    torch_output = torch_moe(a, w1_ref, w2_ref, score, topk)
+    torch.testing.assert_close(triton_output, torch_output, atol=2e-2, rtol=0)

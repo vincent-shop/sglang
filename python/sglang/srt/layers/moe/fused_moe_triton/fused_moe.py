@@ -71,6 +71,7 @@ def inplace_fused_experts(
     use_int8_w8a8: bool = False,
     use_int8_w8a16: bool = False,
     use_int4_w4a16: bool = False,
+    use_int4_w4a8: bool = False,
     per_channel_quant: bool = False,
     w1_scale: Optional[torch.Tensor] = None,
     w2_scale: Optional[torch.Tensor] = None,
@@ -99,6 +100,7 @@ def inplace_fused_experts(
         use_int8_w8a8,
         use_int8_w8a16,
         use_int4_w4a16,
+        use_int4_w4a8,
         per_channel_quant,
         w1_scale,
         w2_scale,
@@ -129,6 +131,7 @@ def inplace_fused_experts_fake(
     use_int8_w8a8: bool = False,
     use_int8_w8a16: bool = False,
     use_int4_w4a16: bool = False,
+    use_int4_w4a8: bool = False,
     per_channel_quant: bool = False,
     w1_scale: Optional[torch.Tensor] = None,
     w2_scale: Optional[torch.Tensor] = None,
@@ -167,6 +170,7 @@ def outplace_fused_experts(
     use_int8_w8a8: bool = False,
     use_int8_w8a16: bool = False,
     use_int4_w4a16: bool = False,
+    use_int4_w4a8: bool = False,
     per_channel_quant: bool = False,
     w1_scale: Optional[torch.Tensor] = None,
     w2_scale: Optional[torch.Tensor] = None,
@@ -196,6 +200,7 @@ def outplace_fused_experts(
         use_int8_w8a8,
         use_int8_w8a16,
         use_int4_w4a16,
+        use_int4_w4a8,
         per_channel_quant,
         w1_scale,
         w2_scale,
@@ -226,6 +231,7 @@ def outplace_fused_experts_fake(
     use_int8_w8a8: bool = False,
     use_int8_w8a16: bool = False,
     use_int4_w4a16: bool = False,
+    use_int4_w4a8: bool = False,
     per_channel_quant: bool = False,
     w1_scale: Optional[torch.Tensor] = None,
     w2_scale: Optional[torch.Tensor] = None,
@@ -263,6 +269,7 @@ def fused_experts(
     use_int8_w8a8: bool = False,
     use_int8_w8a16: bool = False,
     use_int4_w4a16: bool = False,
+    use_int4_w4a8: bool = False,
     per_channel_quant: bool = False,
     w1_scale: Optional[torch.Tensor] = None,
     w2_scale: Optional[torch.Tensor] = None,
@@ -293,6 +300,7 @@ def fused_experts(
             use_int8_w8a8,
             use_int8_w8a16,
             use_int4_w4a16,
+            use_int4_w4a8,
             per_channel_quant,
             w1_scale,
             w2_scale,
@@ -322,6 +330,7 @@ def fused_experts(
             use_int8_w8a8,
             use_int8_w8a16,
             use_int4_w4a16,
+            use_int4_w4a8,
             per_channel_quant,
             w1_scale,
             w2_scale,
@@ -372,6 +381,7 @@ def fused_experts_impl(
     use_int8_w8a8: bool = False,
     use_int8_w8a16: bool = False,
     use_int4_w4a16: bool = False,
+    use_int4_w4a8: bool = False,
     per_channel_quant: bool = False,
     w1_scale: Optional[torch.Tensor] = None,
     w2_scale: Optional[torch.Tensor] = None,
@@ -387,11 +397,15 @@ def fused_experts_impl(
     filter_expert: bool = True,
 ):
     padded_size = padding_size
-    if not (use_fp8_w8a8 or use_int8_w8a8) or block_shape is not None or _use_aiter:
+    if (
+        not (use_fp8_w8a8 or use_int8_w8a8 or use_int4_w4a8)
+        or block_shape is not None
+        or _use_aiter
+    ):
         padded_size = 0
 
     # Check constraints.
-    if use_int4_w4a16:
+    if use_int4_w4a16 or use_int4_w4a8:
         assert hidden_states.shape[1] // 2 == w1.shape[2], "Hidden size mismatch"
     else:
         assert (
@@ -413,6 +427,7 @@ def fused_experts_impl(
         use_fp8_w8a8=use_fp8_w8a8,
         use_int8_w8a8=use_int8_w8a8,
         use_int8_w8a16=use_int8_w8a16,
+        use_int4_w4a8=use_int4_w4a8,
         use_int4_w4a16=use_int4_w4a16,
         dtype=hidden_states.dtype,
     )
@@ -528,6 +543,7 @@ def fused_experts_impl(
             use_int8_w8a8=use_int8_w8a8,
             use_int8_w8a16=use_int8_w8a16,
             use_int4_w4a16=use_int4_w4a16,
+            use_int4_w4a8=use_int4_w4a8,
             per_channel_quant=per_channel_quant,
             block_shape=block_shape,
             c_sorted=down_moe_use_tma,
@@ -584,6 +600,7 @@ def fused_experts_impl(
             use_int8_w8a8=use_int8_w8a8,
             use_int8_w8a16=use_int8_w8a16,
             use_int4_w4a16=use_int4_w4a16,
+            use_int4_w4a8=use_int4_w4a8,
             per_channel_quant=per_channel_quant,
             block_shape=block_shape,
             a_use_tma=down_moe_use_tma,
@@ -661,6 +678,7 @@ def fused_moe(
     use_int8_w8a8: bool = False,
     use_int8_w8a16: bool = False,
     use_int4_w4a16: bool = False,
+    use_int4_w4a8: bool = False,
     per_channel_quant: bool = False,
     w1_scale: Optional[torch.Tensor] = None,
     w2_scale: Optional[torch.Tensor] = None,
@@ -689,6 +707,7 @@ def fused_moe(
     - use_int8_w8a16 (bool): If True, use fp8 arithmetic to compute the inner
         products for w1 and w2. Defaults to False.
     - use_int4_w4a16 (bool): If True, use matmul of int4 weight and bf16/fp16
+    - use_int4_w4a8 (bool): If True, use matmul of int4 weight and int8 activations
         activation to compute the inner products for w1 and w2.
         Defaults to False.
     - w1_scale (Optional[torch.Tensor]): Optional scale to be used for
@@ -722,6 +741,7 @@ def fused_moe(
         use_int8_w8a8=use_int8_w8a8,
         use_int8_w8a16=use_int8_w8a16,
         use_int4_w4a16=use_int4_w4a16,
+        use_int4_w4a8=use_int4_w4a8,
         per_channel_quant=per_channel_quant,
         w1_scale=w1_scale,
         w2_scale=w2_scale,

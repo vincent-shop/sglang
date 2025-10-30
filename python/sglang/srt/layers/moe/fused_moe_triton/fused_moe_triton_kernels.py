@@ -78,6 +78,7 @@ def fused_moe_kernel_gptq_awq(
     a_ptr,
     b_ptr,
     c_ptr,
+    a_scale_ptr,
     b_scale_ptr,
     b_zp_ptr,
     topk_weights_ptr,
@@ -95,6 +96,8 @@ def fused_moe_kernel_gptq_awq(
     # (A has M rows).
     stride_am,
     stride_ak,
+    stride_asm,
+    stride_ask,
     stride_be,
     stride_bk,
     stride_bn,
@@ -118,6 +121,7 @@ def fused_moe_kernel_gptq_awq(
     has_zp: tl.constexpr,
     use_int4_w4a16: tl.constexpr,
     use_int8_w8a16: tl.constexpr,
+    use_int4_w4a8: tl.constexpr,
     even_Ks: tl.constexpr,
     filter_expert: tl.constexpr,
 ):
@@ -197,7 +201,7 @@ def fused_moe_kernel_gptq_awq(
         offs_token[:, None] // top_k * stride_am + offs_k[None, :] * stride_ak
     )
 
-    if use_int4_w4a16:
+    if use_int4_w4a16 or use_int4_w4a8:
         b_ptrs = (
             b_ptr
             + off_experts * stride_be
@@ -213,11 +217,11 @@ def fused_moe_kernel_gptq_awq(
             + offs_bn[None, :] * stride_bn
         )
 
-    if not has_zp and use_int4_w4a16:
+    if not has_zp and (use_int4_w4a16 or use_int4_w4a8):
         b_zp_num = 8
     if not has_zp and use_int8_w8a16:
         b_zp_num = 128
-    elif has_zp and use_int4_w4a16:
+    elif has_zp and (use_int4_w4a16 or use_int4_w4a8):
         b_zp_shifter = (offs_bn[None, :] % 2) * 4
 
     # -----------------------------------------------------------
@@ -233,17 +237,29 @@ def fused_moe_kernel_gptq_awq(
         if not even_Ks:
             k_mask = offs_k[:, None] < K - k * BLOCK_SIZE_K
             k_other = 0.0
+            mask_a = token_mask[:, None] & (offs_k[None, :] < K - k * BLOCK_SIZE_K)
         else:
             k_mask = None
             k_other = None
+            mask_a = token_mask[:, None]
 
         a = tl.load(
             a_ptrs,
-            mask=token_mask[:, None] & (offs_k[None, :] < K - k * BLOCK_SIZE_K),
+            mask=mask_a,
             other=0.0,
         )
+        if use_int4_w4a8:
+            a_scale_ptrs = (
+                a_scale_ptr
+                + (offs_token[:, None] // top_k) * stride_asm
+                + ((offs_k[None, :] + BLOCK_SIZE_K * k) // group_size) * stride_ask
+            )
+            a_scale = tl.load(a_scale_ptrs, mask=mask_a, other=0.0)
+            a = (a.to(tl.float32) * a_scale.to(tl.float32)).to(compute_type)
+        else:
+            a = a.to(compute_type)
         b = tl.load(b_ptrs)
-        if use_int4_w4a16:
+        if use_int4_w4a16 or use_int4_w4a8:
             b = (b >> b_shifter) & 0xF
 
         b_scale_ptrs = (
@@ -255,7 +271,7 @@ def fused_moe_kernel_gptq_awq(
         b_scale = tl.load(b_scale_ptrs, mask=k_mask, other=k_other)
         b_scale = b_scale.to(tl.float32)
 
-        if has_zp and use_int4_w4a16:
+        if has_zp and (use_int4_w4a16 or use_int4_w4a8):
             offs_k_true = (offs_k[:, None] + BLOCK_SIZE_K * k) // group_size
             b_zp_ptrs = (
                 b_zp_ptr
@@ -286,7 +302,7 @@ def fused_moe_kernel_gptq_awq(
 
         # Advance the ptrs to the next K block.
         a_ptrs += BLOCK_SIZE_K * stride_ak
-        if use_int4_w4a16:
+        if use_int4_w4a16 or use_int4_w4a8:
             b_ptrs += (BLOCK_SIZE_K // 2) * stride_bk
         else:
             b_ptrs += BLOCK_SIZE_K * stride_bk
@@ -604,6 +620,7 @@ def invoke_fused_moe_kernel(
     use_int8_w8a8: bool,
     use_int8_w8a16: bool,
     use_int4_w4a16: bool,
+    use_int4_w4a8: bool,
     per_channel_quant: bool,
     block_shape: Optional[List[int]] = None,
     no_combine: bool = False,
@@ -616,6 +633,10 @@ def invoke_fused_moe_kernel(
     assert sorted_token_ids.stride(0) == 1
 
     padded_size = 0
+    if use_int4_w4a8:
+        assert (
+            block_shape is not None and len(block_shape) == 2 and block_shape[1] > 0
+        ), "int4_w4a8 requires group-wise block quantization metadata"
     if use_fp8_w8a8:
         assert B_scale is not None
         if block_shape is None:
@@ -636,7 +657,7 @@ def invoke_fused_moe_kernel(
             assert triton.cdiv(A.shape[-1], block_k) == A_scale.shape[-1]
             assert triton.cdiv(B.shape[-2], block_n) == B_scale.shape[-2]
             assert triton.cdiv(B.shape[-1], block_k) == B_scale.shape[-1]
-    elif use_int8_w8a8:
+    elif use_int8_w8a8 or use_int4_w4a8:
         assert B_scale is not None
         if block_shape is None:
             # activation channel-wise int8 quantization
@@ -653,8 +674,10 @@ def invoke_fused_moe_kernel(
             else:
                 A, A_scale = per_token_group_quant_int8(A, block_k)
             assert triton.cdiv(A.shape[-1], block_k) == A_scale.shape[-1]
-            assert triton.cdiv(B.shape[-2], block_n) == B_scale.shape[-2]
-            assert triton.cdiv(B.shape[-1], block_k) == B_scale.shape[-1]
+            if block_n > 0 and B_scale.ndim >= 2:
+                assert triton.cdiv(B.shape[-2], block_n) == B_scale.shape[-2]
+            if B_scale.ndim == 3:
+                assert triton.cdiv(B.shape[-1], block_k) == B_scale.shape[-1]
     elif use_int8_w8a16 or use_int4_w4a16:
         assert B_scale is not None
         assert block_shape is None or block_shape[0] == 0
@@ -673,8 +696,16 @@ def invoke_fused_moe_kernel(
     else:
         even_Ks = False
 
+    a_scale_tensor = A_scale if A_scale is not None else A
+    a_scale_stride_0 = (
+        A_scale.stride(0) if A_scale is not None and A_scale.ndim >= 1 else 0
+    )
+    a_scale_stride_1 = (
+        A_scale.stride(1) if A_scale is not None and A_scale.ndim >= 2 else 0
+    )
+
     if (
-        (use_int8_w8a16 or use_int4_w4a16)
+        (use_int8_w8a16 or use_int4_w4a16 or use_int4_w4a8)
         and block_shape is not None
         and block_shape[1] > 0
     ):
@@ -685,6 +716,7 @@ def invoke_fused_moe_kernel(
             A,
             B,
             C,
+            a_scale_tensor,
             B_scale,
             B_zp,
             topk_weights,
@@ -697,6 +729,8 @@ def invoke_fused_moe_kernel(
             topk_ids.numel(),
             A.stride(0),
             A.stride(1),
+            a_scale_stride_0,
+            a_scale_stride_1,
             B.stride(0),
             B.stride(2),
             B.stride(1),
@@ -715,6 +749,7 @@ def invoke_fused_moe_kernel(
             has_zp=B_zp is not None,
             use_int4_w4a16=use_int4_w4a16,
             use_int8_w8a16=use_int8_w8a16,
+            use_int4_w4a8=use_int4_w4a8,
             even_Ks=even_Ks,
             filter_expert=filter_expert,
             **config,

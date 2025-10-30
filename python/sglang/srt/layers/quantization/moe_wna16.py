@@ -68,6 +68,7 @@ class MoeWNA16Config(QuantizationConfig):
         linear_quant_method: str,
         weight_bits: int,
         group_size: int,
+        activation_bits: int,
         has_zp: bool,
         lm_head_quantized: bool,
         modules_to_not_convert: Optional[List[str]],
@@ -76,6 +77,7 @@ class MoeWNA16Config(QuantizationConfig):
         super().__init__()
         self.weight_bits = weight_bits
         self.group_size = group_size
+        self.activation_bits = activation_bits
         self.has_zp = has_zp
         self.bit8_pack_factor = 8 // self.weight_bits
         self.lm_head_quantized = lm_head_quantized
@@ -134,6 +136,8 @@ class MoeWNA16Config(QuantizationConfig):
         weight_bits = cls.get_from_keys(config, ["bits"])
         group_size = cls.get_from_keys(config, ["group_size"])
         lm_head_quantized = cls.get_from_keys_or(config, ["lm_head"], default=False)
+        activation_bits = cls.get_from_keys_or(config, ["activation_bits"], 16)
+
         if quant_method == "gptq":
             has_zp = not cls.get_from_keys(config, ["sym"])
             modules_to_not_convert = []
@@ -149,6 +153,7 @@ class MoeWNA16Config(QuantizationConfig):
             quant_method,
             weight_bits,
             group_size,
+            activation_bits,
             has_zp,
             lm_head_quantized,
             modules_to_not_convert,
@@ -370,11 +375,13 @@ class MoeWNA16Method(FusedMoEMethodBase):
 
         weight_bits = self.quant_config.weight_bits
         has_zp = self.quant_config.has_zp
+        is_w4a8 = weight_bits == 4 and self.quant_config.activation_bits == 8
 
         quant_info = TritonMoeQuantInfo(
             w13_weight=layer.w13_qweight,
             w2_weight=layer.w2_qweight,
-            use_int4_w4a16=weight_bits == 4,
+            use_int4_w4a16=weight_bits == 4 and not is_w4a8,
+            use_int4_w4a8=is_w4a8,
             use_int8_w8a16=weight_bits == 8,
             w13_scale=layer.w13_scales,
             w2_scale=layer.w2_scales,

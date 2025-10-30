@@ -13,6 +13,15 @@ from sglang.srt.layers.moe.utils import (
     should_use_flashinfer_cutlass_moe_fp4_allgather,
     should_use_flashinfer_trtllm_moe,
 )
+from sglang.srt.utils import is_flashinfer_available
+
+if is_flashinfer_available():
+    try:
+        from flashinfer.fused_moe import RoutingMethodType
+    except ImportError:
+        RoutingMethodType = None
+else:
+    RoutingMethodType = None
 
 __all__ = [
     "DeepEPMode",
