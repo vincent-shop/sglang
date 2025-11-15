@@ -636,6 +636,34 @@ class EAGLEWorkerV2(BaseSpecWorker):
             accept_length,
             accept_index,
         ) = verify_input.sample(batch, logits_output)
+
+        if self.topk > 1:
+            expected_predict_tokens = bs * (verify_input.spec_steps + 1)
+            if predict.numel() != expected_predict_tokens:
+                raise RuntimeError(
+                    "Beta spec overlap predict tensor length mismatch for topk>1. "
+                    f"found={predict.numel()} expected={expected_predict_tokens}"
+                )
+
+            accepted_mask = accept_index != -1
+            accepted_counts = accepted_mask.sum(dim=1)
+            if torch.any(accepted_counts != accept_length):
+                mismatch = (accepted_counts - accept_length).to("cpu")
+                raise RuntimeError(
+                    "Beta spec overlap accept_length mismatch for topk>1. "
+                    f"counts={accepted_counts.to('cpu').tolist()} "
+                    f"accept_length={accept_length.to('cpu').tolist()} "
+                    f"diff={mismatch.tolist()}"
+                )
+
+            max_allowed = verify_input.spec_steps + 1
+            if torch.any(accept_length > max_allowed):
+                raise RuntimeError(
+                    "Beta spec overlap accept_length exceeds theoretical bound. "
+                    f"accept_length={accept_length.to('cpu').tolist()} "
+                    f"spec_steps={verify_input.spec_steps}"
+                )
+
         new_seq_lens = batch.seq_lens + accept_length
         verify_done = torch.get_device_module(self.device).Event()
         verify_done.record()
