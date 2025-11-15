@@ -26,6 +26,7 @@ from sglang.srt.server_args import get_global_server_args
 from sglang.srt.speculative.eagle_utils import verify_tree_greedy_func
 from sglang.srt.speculative.spec_utils import (
     SIMULATE_ACC_LEN,
+    assign_req_to_token_pool_func,
     generate_simulated_accept_index,
 )
 from sglang.srt.utils.common import fast_topk, is_cuda, is_hip, is_npu, next_power_of_2
@@ -80,8 +81,6 @@ def assign_draft_cache_locs_page_size_1(
 @dataclass
 class EagleDraftInputV2Mixin:
     def prepare_for_decode(self: EagleDraftInput, batch: ScheduleBatch):
-        from sglang.srt.speculative.spec_utils import assign_req_to_token_pool_func
-
         bs = batch.batch_size()
 
         # TODO(lsyin): implement over-allocation
@@ -186,6 +185,7 @@ class EagleDraftInputV2Mixin:
 
         batch.spec_info = self
         batch.input_ids = predict
+        start_offsets = seq_lens_cpu_.to(batch.seq_lens.device, non_blocking=True)
         batch.seq_lens = batch.seq_lens + accept_lengths
         batch.seq_lens_cpu = batch.seq_lens_cpu + accept_lengths_cpu
         batch.seq_lens_sum += extend_num_tokens
@@ -194,6 +194,19 @@ class EagleDraftInputV2Mixin:
         batch.extend_num_tokens = extend_num_tokens
         batch.capture_hidden_mode = CaptureHiddenMode.FULL
         batch.forward_mode = ForwardMode.DRAFT_EXTEND_V2
+        assign_req_to_token_pool_func(
+            batch.req_pool_indices,
+            batch.req_to_token_pool.req_to_token,
+            start_offsets,
+            batch.seq_lens,
+            batch.out_cache_loc,
+            len(batch.seq_lens),
+        )
+        batch.seq_lens_cpu = batch.seq_lens.cpu()
+        for i, req in enumerate(batch.reqs):
+            req.kv_committed_len = batch.seq_lens_cpu[i].item()
+            req.kv_allocated_len = req.kv_committed_len + self.ALLOC_LEN_PER_DECODE
+
         forward_batch = ForwardBatch.init_new(batch, draft_model_runner)
         draft_model_runner.attn_backend.init_forward_metadata(forward_batch)
         return forward_batch

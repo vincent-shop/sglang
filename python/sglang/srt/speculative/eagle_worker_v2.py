@@ -676,10 +676,30 @@ class EAGLEWorkerV2(BaseSpecWorker):
             )
 
         flat_indices = accept_index.masked_select(valid_mask).to(torch.long)
+        total_slots = batch.out_cache_loc.shape[0]
+        if flat_indices.numel() == 0:
+            raise RuntimeError("Beta spec overlap produced zero accepted slots.")
         packed_next_token_ids = predict.index_select(0, flat_indices)
 
         if packed_next_token_ids.numel() != int(accept_length.sum().item()):
             raise RuntimeError("Beta spec overlap packed token count mismatch.")
+
+        # Slice KV cache slots to the accepted subset and free rejects immediately.
+        orig_out_cache_loc = batch.out_cache_loc
+        accepted_out_cache_loc = orig_out_cache_loc.index_select(0, flat_indices)
+        if accepted_out_cache_loc.shape[0] != packed_next_token_ids.numel():
+            raise RuntimeError("Beta spec overlap accepted cache slots mismatch.")
+
+        if accepted_out_cache_loc.shape[0] < total_slots:
+            all_slot_indices = torch.arange(total_slots, device=self.device)
+            reject_mask = torch.ones(total_slots, dtype=torch.bool, device=self.device)
+            reject_mask[flat_indices] = False
+            rejected_indices = all_slot_indices[reject_mask]
+            if rejected_indices.numel() > 0:
+                rejected_locs = orig_out_cache_loc.index_select(0, rejected_indices)
+                self.token_to_kv_pool_allocator.free(rejected_locs)
+
+        batch.out_cache_loc = accepted_out_cache_loc
 
         accept_offsets = torch.zeros((bs + 1,), dtype=torch.int32, device=self.device)
         accept_offsets[1:] = torch.cumsum(accept_length, dim=0)
