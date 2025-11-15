@@ -185,7 +185,9 @@ class EagleDraftInputV2Mixin:
 
         batch.spec_info = self
         batch.input_ids = predict
-        start_offsets = seq_lens_cpu_.to(batch.seq_lens.device, non_blocking=True)
+        req_to_token_tensor = draft_model_runner.req_to_token_pool.req_to_token
+        req_to_token_device = req_to_token_tensor.device
+        start_offsets = seq_lens_cpu_.to(req_to_token_device, non_blocking=True)
         batch.seq_lens = batch.seq_lens + accept_lengths
         batch.seq_lens_cpu = batch.seq_lens_cpu + accept_lengths_cpu
         batch.seq_lens_sum += extend_num_tokens
@@ -196,9 +198,9 @@ class EagleDraftInputV2Mixin:
         batch.forward_mode = ForwardMode.DRAFT_EXTEND_V2
         assign_req_to_token_pool_func(
             batch.req_pool_indices,
-            batch.req_to_token_pool.req_to_token,
+            req_to_token_tensor,
             start_offsets,
-            batch.seq_lens,
+            batch.seq_lens.to(req_to_token_device, non_blocking=True),
             batch.out_cache_loc,
             len(batch.seq_lens),
         )
