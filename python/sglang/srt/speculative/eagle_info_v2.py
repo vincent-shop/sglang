@@ -172,18 +172,24 @@ class EagleDraftInputV2Mixin:
         self,
         batch: ModelWorkerBatch,
         predict: torch.Tensor,
-        num_draft_tokens: int,
+        accept_lengths: torch.Tensor,
         draft_model_runner: Any,
     ):
         seq_lens_cpu_ = batch.seq_lens_cpu
-        extend_num_tokens = len(batch.seq_lens) * num_draft_tokens
+        accept_lengths = accept_lengths.to(
+            dtype=batch.seq_lens.dtype, device=batch.seq_lens.device
+        )
+        extend_num_tokens = int(accept_lengths.sum().item())
+        accept_lengths_cpu = accept_lengths.to("cpu", non_blocking=True).to(
+            dtype=batch.seq_lens_cpu.dtype
+        )
 
         batch.spec_info = self
         batch.input_ids = predict
-        batch.seq_lens = batch.seq_lens + num_draft_tokens
-        batch.seq_lens_cpu = batch.seq_lens_cpu + num_draft_tokens
+        batch.seq_lens = batch.seq_lens + accept_lengths
+        batch.seq_lens_cpu = batch.seq_lens_cpu + accept_lengths_cpu
         batch.seq_lens_sum += extend_num_tokens
-        batch.extend_seq_lens = [num_draft_tokens for _ in range(len(batch.seq_lens))]
+        batch.extend_seq_lens = accept_lengths_cpu.to(torch.int32).tolist()
         batch.extend_prefix_lens = seq_lens_cpu_.tolist()
         batch.extend_num_tokens = extend_num_tokens
         batch.capture_hidden_mode = CaptureHiddenMode.FULL

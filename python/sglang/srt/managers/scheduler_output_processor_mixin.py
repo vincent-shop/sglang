@@ -264,17 +264,18 @@ class SchedulerOutputProcessorMixin:
         assert result.next_token_ids.is_cpu
         assert result.accept_lens.is_cpu
         assert result.allocate_lens.is_cpu
+        assert result.accept_offsets is not None and result.accept_offsets.is_cpu
 
         next_token_ids = result.next_token_ids.tolist()
         accept_lens = result.accept_lens.tolist()
+        accept_offsets = result.accept_offsets.tolist()
         result.num_accepted_tokens = sum(accept_lens) - len(batch.reqs)
 
         predict_tokens = []
-        stride = self.draft_worker.speculative_num_draft_tokens
         for i, req in enumerate(batch.reqs):
-            predict_tokens.append(
-                next_token_ids[i * stride : i * stride + accept_lens[i]]
-            )
+            start = accept_offsets[i]
+            end = accept_offsets[i + 1]
+            predict_tokens.append(next_token_ids[start:end])
             req.spec_verify_ct += 1
             req.spec_accepted_tokens += accept_lens[i] - 1
 

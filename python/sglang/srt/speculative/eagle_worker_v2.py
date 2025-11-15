@@ -444,19 +444,15 @@ class EagleDraftWorker(BaseDraftWorker):
         draft_input = EagleDraftInput(
             hidden_states=batch_result.logits_output.hidden_states,
         )
-        select_index = (
-            torch.arange(len(batch.seq_lens), device=self.device)
-            * self.speculative_num_draft_tokens
-            + batch_result.accept_lens
-            - 1
-        )
+        select_index = batch_result.accept_offsets[1:] - 1
+        select_index = select_index.to(dtype=torch.long, device=self.device)
 
         # Prepare for draft extend in a separate stream
         with self.plan_stream_ctx:
             forward_batch = draft_input.prepare_for_extend_to_fill_draft_kvcache(
                 batch,
                 batch_result.next_token_ids,
-                self.speculative_num_draft_tokens,
+                batch_result.accept_lens,
                 self.draft_runner,
             )
 
@@ -668,6 +664,26 @@ class EAGLEWorkerV2(BaseSpecWorker):
         verify_done = torch.get_device_module(self.device).Event()
         verify_done.record()
 
+        valid_mask = accept_index != -1
+        valid_index_per_req = valid_mask.sum(dim=1, dtype=torch.int32)
+        if torch.any(valid_index_per_req != accept_length):
+            mismatch = (valid_index_per_req - accept_length).to("cpu")
+            raise RuntimeError(
+                "Beta spec overlap accept_index mask mismatch."  # pragma: no cover
+                f" mask_counts={valid_index_per_req.to('cpu').tolist()}"
+                f" accept_length={accept_length.to('cpu').tolist()}"
+                f" diff={mismatch.tolist()}"
+            )
+
+        flat_indices = accept_index.masked_select(valid_mask).to(torch.long)
+        packed_next_token_ids = predict.index_select(0, flat_indices)
+
+        if packed_next_token_ids.numel() != int(accept_length.sum().item()):
+            raise RuntimeError("Beta spec overlap packed token count mismatch.")
+
+        accept_offsets = torch.zeros((bs + 1,), dtype=torch.int32, device=self.device)
+        accept_offsets[1:] = torch.cumsum(accept_length, dim=0)
+
         all_verified_id = predict[accept_index]
         verified_id = torch.empty_like(accept_length, dtype=torch.int32)
         fill_new_verified_id[(bs,)](
@@ -681,17 +697,18 @@ class EAGLEWorkerV2(BaseSpecWorker):
         next_draft_input = EagleDraftInput(
             verified_id=verified_id,
             new_seq_lens=new_seq_lens,
-            allocate_lens=cur_allocate_lens,
+            allocate_lens=cur_allocate_lens + accept_length.to(cur_allocate_lens.dtype),
             verify_done=verify_done,
         )
 
         return GenerationBatchResult(
             logits_output=logits_output,
-            next_token_ids=predict,
+            next_token_ids=packed_next_token_ids,
             can_run_cuda_graph=can_run_cuda_graph,
             next_draft_input=next_draft_input,
             accept_lens=accept_length,
             allocate_lens=cur_allocate_lens,
+            accept_offsets=accept_offsets,
         )
 
     def move_accepted_tokens_to_target_kvcache(
