@@ -204,11 +204,6 @@ class EagleDraftInputV2Mixin:
             batch.out_cache_loc,
             len(batch.seq_lens),
         )
-        batch.seq_lens_cpu = batch.seq_lens.cpu()
-        for i, req in enumerate(batch.reqs):
-            req.kv_committed_len = batch.seq_lens_cpu[i].item()
-            req.kv_allocated_len = req.kv_committed_len + self.ALLOC_LEN_PER_DECODE
-
         forward_batch = ForwardBatch.init_new(batch, draft_model_runner)
         draft_model_runner.attn_backend.init_forward_metadata(forward_batch)
         return forward_batch
