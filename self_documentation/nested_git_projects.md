@@ -1,6 +1,6 @@
 # Nested Git Projects in SGLang
 
-This document describes the git projects nested within the SGLang repository, what they are, and how SGLang uses them.
+This document describes the git projects nested within the current SGLang repository, what they are, and how SGLang uses them. They do not come bundled, but SGLang pulls and uses code from them, either as dependencies or manual code synced.
 
 ## flash-attention
 
