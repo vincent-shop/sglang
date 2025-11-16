@@ -488,7 +488,6 @@ exec_config_t determine_exec_config(
             max_shared_mem)) {
       continue;
     }
-
     int cache_size = get_kernel_cache_size(
         th_config,
         thread_m_blocks,
@@ -521,20 +520,15 @@ exec_config_t determine_exec_config(
 
     if (kernel == MarlinDefault) continue;
 
-    if (thread_m_blocks > 1) {
-      exec_cfg = {1, th_config};
-      break;
-    } else {
-      cudaFuncAttributes attr;
-      cudaFuncGetAttributes(&attr, kernel);
-      int reg_size = max(attr.numRegs, 1) * th_config.num_threads * 4;
-      int allow_count = min(device_max_reg_size / reg_size, max_shared_mem / (cache_size + 1024));
-      allow_count = max(min(allow_count, 4), 1);
-      if (allow_count > count) {
-        count = allow_count;
-        exec_cfg = {count, th_config};
-      };
-    }
+    cudaFuncAttributes attr;
+    cudaFuncGetAttributes(&attr, kernel);
+    int reg_size = max(attr.numRegs, 1) * th_config.num_threads * 4;
+    int allow_count = min(device_max_reg_size / reg_size, max_shared_mem / (cache_size + 1024));
+    allow_count = max(min(allow_count, 4), 1);
+    if (allow_count > count) {
+      count = allow_count;
+      exec_cfg = {count, th_config};
+    };
   }
 
   return exec_cfg;
