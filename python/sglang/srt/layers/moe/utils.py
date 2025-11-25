@@ -6,11 +6,14 @@ from enum import Enum, IntEnum
 from functools import lru_cache
 from typing import TYPE_CHECKING, Optional
 
+import torch
+
 from sglang.srt.distributed.parallel_state import get_moe_expert_parallel_world_size
 from sglang.srt.layers.dp_attention import (
     get_attention_dp_size,
     is_dp_attention_enabled,
 )
+from sglang.srt.model_executor.cuda_graph_runner import get_is_capture_mode
 from sglang.srt.utils import log_info_on_rank0
 
 if TYPE_CHECKING:
@@ -271,3 +274,50 @@ class RoutingMethodType(IntEnum):
     TopK = (5,)
     # Unspecified
     Unspecified = 6
+
+
+def should_use_dual_stream_overlap(
+    *,
+    hidden_states: torch.Tensor,
+    alt_stream: Optional[object],
+    token_threshold: Optional[int] = None,
+    require_capture_mode: bool = True,
+) -> bool:
+    if alt_stream is None:
+        return False
+
+    if hidden_states.ndim == 0:
+        return False
+
+    num_tokens = int(hidden_states.shape[0])
+    if num_tokens <= 0:
+        return False
+
+    if token_threshold is not None and num_tokens > token_threshold:
+        return False
+
+    if require_capture_mode and not get_is_capture_mode():
+        return False
+
+    return True
+
+
+@contextmanager
+def dual_stream_overlap_region(
+    alt_stream: Optional[object],
+    *,
+    enabled: bool,
+):
+    device_module = torch.get_device_module()
+    current_stream = device_module.current_stream()
+
+    if not enabled or alt_stream is None:
+        yield current_stream, current_stream
+        return
+
+    alt_stream.wait_stream(current_stream)
+
+    try:
+        yield current_stream, alt_stream
+    finally:
+        current_stream.wait_stream(alt_stream)

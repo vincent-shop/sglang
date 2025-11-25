@@ -46,6 +46,10 @@ from sglang.srt.layers.logits_processor import LogitsProcessor
 from sglang.srt.layers.moe.ep_moe.layer import get_moe_impl_class
 from sglang.srt.layers.moe.fused_moe_triton.layer import FusedMoE
 from sglang.srt.layers.moe.topk import TopK
+from sglang.srt.layers.moe.utils import (
+    dual_stream_overlap_region,
+    should_use_dual_stream_overlap,
+)
 from sglang.srt.layers.quantization import QuantizationConfig
 from sglang.srt.layers.radix_attention import RadixAttention
 from sglang.srt.layers.vocab_parallel_embedding import (
@@ -61,12 +65,7 @@ from sglang.srt.model_loader.weight_utils import (
     replace_substrings,
 )
 from sglang.srt.server_args import get_global_server_args
-from sglang.srt.utils import (
-    add_prefix,
-    get_current_device_stream_fast,
-    is_cuda,
-    make_layers_non_pp,
-)
+from sglang.srt.utils import add_prefix, is_cuda, make_layers_non_pp
 from sglang.utils import logger
 
 _is_cuda = is_cuda()
@@ -189,44 +188,28 @@ class NemotronHMoE(nn.Module):
         self,
         hidden_states: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
-        if _is_cuda:
-            return self._forward_core_shared_routed_overlap(hidden_states)
-        else:
-            return self._forward_core_normal(hidden_states)
+        alt_stream = _get_or_create_alt_stream(self.device_module) if _is_cuda else None
 
-    def _forward_core_normal(
-        self,
-        hidden_states: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor | None]:
-        # router_scores: [num_tokens, num_experts]
-        router_logits, _ = self.gate(hidden_states.to(dtype=torch.float32))
-        if self.shared_experts is not None:
-            shared_output = self.shared_experts(hidden_states)
-        else:
+        use_dual = should_use_dual_stream_overlap(
+            hidden_states=hidden_states,
+            alt_stream=alt_stream,
+            token_threshold=None,
+            require_capture_mode=False,
+        )
+
+        with dual_stream_overlap_region(alt_stream, enabled=use_dual) as (
+            shared_stream,
+            routed_stream,
+        ):
             shared_output = None
-        topk_output = self.topk(hidden_states, router_logits)
-        final_hidden_states = self.experts(hidden_states, topk_output)
-        return final_hidden_states, shared_output
+            if self.shared_experts is not None:
+                with self.device_module.stream(shared_stream):
+                    shared_output = self.shared_experts(hidden_states)
 
-    def _forward_core_shared_routed_overlap(
-        self,
-        hidden_states: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor | None]:
-        alt_stream = _get_or_create_alt_stream(self.device_module)
-
-        alt_stream.wait_stream(get_current_device_stream_fast())
-
-        if self.shared_experts is not None:
-            shared_output = self.shared_experts(hidden_states)
-        else:
-            shared_output = None
-
-        with self.device_module.stream(alt_stream):
-            # router_scores: [num_tokens, num_experts]
-            router_logits, _ = self.gate(hidden_states.to(dtype=torch.float32))
-            topk_output = self.topk(hidden_states, router_logits)
-            final_hidden_states = self.experts(hidden_states, topk_output)
-        get_current_device_stream_fast().wait_stream(alt_stream)
+            with self.device_module.stream(routed_stream):
+                router_logits, _ = self.gate(hidden_states.to(dtype=torch.float32))
+                topk_output = self.topk(hidden_states, router_logits)
+                final_hidden_states = self.experts(hidden_states, topk_output)
 
         return final_hidden_states, shared_output
 

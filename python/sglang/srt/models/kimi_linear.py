@@ -26,13 +26,16 @@ from sglang.srt.layers.logits_processor import LogitsProcessor
 from sglang.srt.layers.moe.ep_moe.layer import get_moe_impl_class
 from sglang.srt.layers.moe.fused_moe_triton.layer import FusedMoE
 from sglang.srt.layers.moe.topk import TopK, TopKOutputFormat
+from sglang.srt.layers.moe.utils import (
+    dual_stream_overlap_region,
+    should_use_dual_stream_overlap,
+)
 from sglang.srt.layers.quantization.base_config import QuantizationConfig
 from sglang.srt.layers.utils import PPMissingLayer
 from sglang.srt.layers.vocab_parallel_embedding import (
     ParallelLMHead,
     VocabParallelEmbedding,
 )
-from sglang.srt.model_executor.cuda_graph_runner import get_is_capture_mode
 from sglang.srt.model_executor.forward_batch_info import ForwardBatch, PPProxyTensors
 from sglang.srt.model_loader.weight_utils import (
     default_weight_loader,
@@ -124,33 +127,28 @@ class KimiMoE(nn.Module):
         num_tokens, hidden_size = hidden_states.shape
         hidden_states = hidden_states.view(-1, hidden_size)
 
-        shared_output = None
-        DUAL_STREAM_TOKEN_THRESHOLD = 1024
+        use_dual = should_use_dual_stream_overlap(
+            hidden_states=hidden_states,
+            alt_stream=self.alt_stream,
+            token_threshold=1024,
+            require_capture_mode=True,
+        )
 
-        if (
-            self.alt_stream is not None
-            and self.num_shared_experts is not None
-            and hidden_states.shape[0] > 0
-            and hidden_states.shape[0] <= DUAL_STREAM_TOKEN_THRESHOLD
-            and get_is_capture_mode()
+        device_module = torch.get_device_module()
+
+        with dual_stream_overlap_region(self.alt_stream, enabled=use_dual) as (
+            shared_stream,
+            routed_stream,
         ):
-            current_stream = torch.cuda.current_stream()
-            self.alt_stream.wait_stream(current_stream)
+            shared_output = None
+            if self.num_shared_experts is not None and hidden_states.shape[0] > 0:
+                with device_module.stream(shared_stream):
+                    shared_output = self.shared_experts(hidden_states.clone())
 
-            shared_output = self.shared_experts(hidden_states.clone())
-
-            with torch.cuda.stream(self.alt_stream):
+            with device_module.stream(routed_stream):
                 router_logits, _ = self.gate(hidden_states)
                 topk_output = self.topk(hidden_states, router_logits)
                 final_hidden_states = self.experts(hidden_states, topk_output)
-
-            current_stream.wait_stream(self.alt_stream)
-        else:
-            if self.num_shared_experts is not None and hidden_states.shape[0] > 0:
-                shared_output = self.shared_experts(hidden_states)
-            router_logits, _ = self.gate(hidden_states)
-            topk_output = self.topk(hidden_states, router_logits)
-            final_hidden_states = self.experts(hidden_states, topk_output)
 
         if shared_output is not None:
             final_hidden_states = final_hidden_states + shared_output
