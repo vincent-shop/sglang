@@ -133,7 +133,7 @@ class XLMRobertaBaseModel(nn.Module):
             else None
         )
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def forward(
         self,
         input_ids: torch.Tensor,

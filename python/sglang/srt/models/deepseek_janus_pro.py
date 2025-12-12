@@ -1976,7 +1976,7 @@ class MultiModalityCausalLM(MultiModalityPreTrainedModel):
     def get_input_embeddings(self) -> nn.Embedding:
         return self.language_model.get_input_embeddings()
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def forward(
         self,
         input_ids: torch.LongTensor,

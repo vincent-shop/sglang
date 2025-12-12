@@ -37,7 +37,7 @@ class StepvideoPromptEncodingStage(PipelineStage):
         self.stepllm = stepllm
         self.clip = clip
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def forward(self, batch: Req, server_args) -> Req:
 
         prompts = [batch.prompt + server_args.pipeline_config.pos_magic]

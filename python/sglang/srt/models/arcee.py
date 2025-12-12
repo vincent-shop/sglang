@@ -428,7 +428,7 @@ class ArceeForCausalLM(nn.Module):
     ):
         return ArceeModel(config, quant_config=quant_config, prefix=prefix)
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def forward(
         self,
         input_ids: torch.Tensor,

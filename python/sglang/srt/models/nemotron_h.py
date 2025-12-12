@@ -641,7 +641,7 @@ class NemotronHForCausalLM(nn.Module):
     def get_input_embeddings(self) -> VocabParallelEmbedding:
         return self.model.embed_tokens
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def forward(
         self,
         input_ids: torch.Tensor,

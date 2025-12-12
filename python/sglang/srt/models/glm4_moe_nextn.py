@@ -143,7 +143,7 @@ class Glm4MoeForCausalLMNextN(Glm4MoeForCausalLM):
             0 if get_global_server_args().disable_shared_experts_fusion else 1
         )
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def forward(
         self,
         input_ids: torch.Tensor,

@@ -345,7 +345,7 @@ class GraniteForCausalLM(nn.Module):
             (".gate_up_proj", ".up_proj", 1),
         ]
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def forward(
         self,
         input_ids: torch.Tensor,

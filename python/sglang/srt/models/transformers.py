@@ -248,7 +248,7 @@ class TransformersForCausalLM(nn.Module):
         )
         self.model.set_input_embeddings(new_module)
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def forward(
         self,
         input_ids: torch.Tensor,

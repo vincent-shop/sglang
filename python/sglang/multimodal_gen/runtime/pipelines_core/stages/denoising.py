@@ -890,7 +890,7 @@ class DenoisingStage(PipelineStage):
 
         return latents
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def forward(
         self,
         batch: Req,

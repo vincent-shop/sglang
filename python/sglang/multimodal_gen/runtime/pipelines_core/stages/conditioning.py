@@ -29,7 +29,7 @@ class ConditioningStage(PipelineStage):
     to the diffusion process.
     """
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def forward(
         self,
         batch: Req,

@@ -413,7 +413,7 @@ class Gemma3RotaryEmbedding(nn.Module):
             self.register_buffer("inv_freq", self.original_inv_freq, persistent=False)
             self.max_seq_len_cached = self.original_max_seq_len
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def forward(self, x, position_ids):
         if "dynamic" in self.rope_type:
             self._dynamic_frequency_update(position_ids, device=x.device)
@@ -629,7 +629,7 @@ class Gemma3ForCausalLM(PreTrainedModel):
     def dtype(self) -> torch.dtype:
         return next(self.parameters()).dtype
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def forward(
         self,
         input_ids: torch.Tensor,
@@ -646,7 +646,7 @@ class Gemma3ForCausalLM(PreTrainedModel):
             input_ids, hidden_states, self.model.embed_tokens, forward_batch
         )
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def forward_split_prefill(
         self,
         input_ids: torch.Tensor,

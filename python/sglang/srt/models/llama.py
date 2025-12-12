@@ -456,7 +456,7 @@ class LlamaForCausalLM(nn.Module):
     ):
         return LlamaModel(config, quant_config=quant_config, prefix=prefix)
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def forward(
         self,
         input_ids: torch.Tensor,
@@ -492,7 +492,7 @@ class LlamaForCausalLM(nn.Module):
         else:
             return hidden_states
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def forward_split_prefill(
         self,
         input_ids: torch.Tensor,

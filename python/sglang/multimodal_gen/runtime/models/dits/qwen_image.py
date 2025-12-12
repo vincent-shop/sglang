@@ -341,7 +341,7 @@ class QwenImageCrossAttention(nn.Module):
         self.fused_projections = False
         self.added_kv_proj_dim_val = added_kv_proj_dim
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def fuse_projections(self):
         if self.fused_projections:
             return

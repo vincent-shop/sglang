@@ -45,7 +45,7 @@ class TextEncodingStage(PipelineStage):
         self.tokenizers = tokenizers
         self.text_encoders = text_encoders
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def forward(
         self,
         batch: Req,
@@ -136,7 +136,7 @@ class TextEncodingStage(PipelineStage):
 
         return tok_kwargs
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def encode_text(
         self,
         text: str | list[str],

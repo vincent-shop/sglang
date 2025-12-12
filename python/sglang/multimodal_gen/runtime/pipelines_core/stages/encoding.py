@@ -35,7 +35,7 @@ class EncodingStage(PipelineStage):
     def __init__(self, vae: ParallelTiledVAE) -> None:
         self.vae: ParallelTiledVAE = vae
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def verify_input(self, batch: Req, server_args: ServerArgs) -> VerificationResult:
         """Verify encoding stage inputs."""
         result = VerificationResult()

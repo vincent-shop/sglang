@@ -398,7 +398,7 @@ class Gemma3nForConditionalGeneration(PreTrainedModel):
             inputs_embeds, per_layer_inputs
         )
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def forward(
         self,
         input_ids: torch.LongTensor,

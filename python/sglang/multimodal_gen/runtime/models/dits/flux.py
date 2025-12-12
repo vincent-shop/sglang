@@ -168,7 +168,7 @@ class FluxAttention(torch.nn.Module, AttentionModuleMixin):
 
         self.fused_projections = False
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def fuse_projections(self):
         if self.fused_projections:
             return

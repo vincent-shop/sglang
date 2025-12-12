@@ -410,7 +410,7 @@ class TorchNativeLlamaForCausalLM(nn.Module):
         # increases compile time significantly
         torch._inductor.config.max_autotune_gemm_backends = "ATEN"
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def forward(
         self,
         input_ids: torch.Tensor,

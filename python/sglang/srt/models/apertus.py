@@ -467,7 +467,7 @@ class ApertusForCausalLM(nn.Module):
     ):
         return ApertusModel(config, quant_config=quant_config, prefix=prefix)
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def forward(
         self,
         input_ids: torch.Tensor,
@@ -503,7 +503,7 @@ class ApertusForCausalLM(nn.Module):
         else:
             return hidden_states
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def forward_split_prefill(
         self,
         input_ids: torch.Tensor,

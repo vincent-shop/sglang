@@ -1063,7 +1063,7 @@ class Glm4MoeForCausalLM(nn.Module):
         ), "Only 1 fused shared expert is supported for Glm4MoeForCausalLM"
         log_info_on_rank0(logger, "Shared experts fusion optimization enabled.")
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def forward(
         self,
         input_ids: torch.Tensor,

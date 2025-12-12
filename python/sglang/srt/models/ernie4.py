@@ -260,7 +260,7 @@ class Ernie4Model(nn.Module):
 
         self.norm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def forward(
         self,
         input_ids: torch.Tensor,
@@ -320,7 +320,7 @@ class Ernie4_5_ForCausalLM(nn.Module):
             )
         self.logits_processor = LogitsProcessor(config)
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def forward(
         self,
         input_ids: torch.Tensor,

@@ -274,7 +274,7 @@ class QWenLMHeadModel(nn.Module):
         )
         self.logits_processor = LogitsProcessor(config)
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def forward(
         self,
         input_ids: torch.Tensor,
@@ -286,7 +286,7 @@ class QWenLMHeadModel(nn.Module):
             input_ids, hidden_states, self.lm_head, forward_batch
         )
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def forward_split_prefill(
         self,
         input_ids: torch.Tensor,

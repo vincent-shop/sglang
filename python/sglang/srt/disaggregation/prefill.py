@@ -322,7 +322,7 @@ class SchedulerDisaggregationPrefillMixin:
 
         return batch
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def event_loop_normal_disagg_prefill(self: Scheduler) -> None:
         """A normal scheduler loop for prefill worker in disaggregation mode."""
 
@@ -348,7 +348,7 @@ class SchedulerDisaggregationPrefillMixin:
             # Otherwise, it hangs under high concurrency
             self.running_batch.batch_is_full = False
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def event_loop_overlap_disagg_prefill(self: Scheduler) -> None:
         self.result_queue = deque()
 

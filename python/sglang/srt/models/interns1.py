@@ -133,7 +133,7 @@ class InternS1ForConditionalGeneration(nn.Module):
         image_features = self.extract_feature(pixel_values)
         return image_features
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def forward(
         self,
         input_ids: torch.Tensor,

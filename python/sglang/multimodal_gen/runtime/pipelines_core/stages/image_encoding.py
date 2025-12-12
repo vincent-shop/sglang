@@ -77,7 +77,7 @@ class ImageEncodingStage(PipelineStage):
         prompt_embeds = qwen_image_postprocess_text(outputs, image_inputs, 64)
         return prompt_embeds
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def forward(
         self,
         batch: Req,

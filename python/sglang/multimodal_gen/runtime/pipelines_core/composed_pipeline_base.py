@@ -340,7 +340,7 @@ class ComposedPipelineBase(ABC):
         setattr(self, stage_name, stage)
 
     # TODO(will): don't hardcode no_grad
-    @torch.no_grad()
+    @torch.inference_mode()
     def forward(
         self,
         batch: Req,

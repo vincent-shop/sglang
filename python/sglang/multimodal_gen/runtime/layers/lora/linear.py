@@ -110,7 +110,7 @@ class BaseLayerWithLoRA(nn.Module):
         self.merge_lora_weights()
         self.lora_path = lora_path
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def merge_lora_weights(self) -> None:
         if self.disable_lora:
             return
@@ -168,7 +168,7 @@ class BaseLayerWithLoRA(nn.Module):
 
         self.merged = True
 
-    @torch.no_grad()
+    @torch.inference_mode()
     # @torch.compile(dynamic=True)
     def unmerge_lora_weights(self) -> None:
         if self.disable_lora:

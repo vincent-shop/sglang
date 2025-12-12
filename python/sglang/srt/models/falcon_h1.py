@@ -485,7 +485,7 @@ class FalconH1ForCausalLM(nn.Module):
             config, logit_scale=self.lm_head_multiplier
         )
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def forward(
         self,
         input_ids: torch.Tensor,

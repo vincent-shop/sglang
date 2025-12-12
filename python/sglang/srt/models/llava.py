@@ -147,7 +147,7 @@ class LlavaBaseForCausalLM(nn.Module):
         image_features = self.multi_modal_projector(selected_image_feature)
         return image_features
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def forward(
         self,
         input_ids: torch.LongTensor,

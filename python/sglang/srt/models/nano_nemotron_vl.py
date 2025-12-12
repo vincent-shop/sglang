@@ -161,7 +161,7 @@ class NemotronH_Nano_VL_V2(nn.Module):
         video_features = self.extract_feature(pixel_values)
         return video_features
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def forward(
         self,
         input_ids: torch.Tensor,
