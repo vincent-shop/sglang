@@ -8,6 +8,8 @@
 
 #include <cfloat>
 #include <type_traits>
+
+#include "../elementwise/utils.h"
 template <typename T, int N>
 using AlignedArray = cutlass::AlignedArray<T, N>;
 using bfloat16_t = cutlass::bfloat16_t;
@@ -288,6 +290,9 @@ __global__ void moe_fused_gate_kernel(
     int64_t num_fused_shared_experts,
     double routed_scaling_factor,
     bool apply_routed_scaling_factor_on_output) {
+#if (defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 900))
+  cudaGridDependencySynchronize();
+#endif
   KernelParams<VPT, NUM_EXPERTS, THREADS_PER_ROW, ROWS_PER_WARP, ROWS_PER_CTA, WARPS_PER_CTA> params;
   moe_fused_gate_impl<T>(
       input,
@@ -301,28 +306,42 @@ __global__ void moe_fused_gate_kernel(
       routed_scaling_factor,
       apply_routed_scaling_factor_on_output,
       params);
+#if (defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 900))
+  cudaTriggerProgrammaticLaunchCompletion();
+#endif
 }
 
 // Macro to compute compile-time constants and launch the kernel.
-#define LAUNCH_MOE_GATE_CONFIG(T, EXPERTS, EXPERT_GROUP)                                                 \
-  do {                                                                                                   \
-    constexpr int VPT = (EXPERTS) / (EXPERT_GROUP);                                                      \
-    /* If EXPERT_GROUP > WARP_SIZE, fall back to 1 row per warp */                                       \
-    constexpr int ROWS_PER_WARP = ((EXPERT_GROUP) <= WARP_SIZE) ? (WARP_SIZE / (EXPERT_GROUP)) : 1;      \
-    constexpr int ROWS_PER_CTA = WARPS_PER_CTA * ROWS_PER_WARP;                                          \
-    moe_fused_gate_kernel<T, VPT, (EXPERTS), (EXPERT_GROUP), ROWS_PER_WARP, ROWS_PER_CTA, WARPS_PER_CTA> \
-        <<<num_blocks, block_dim, 0, stream>>>(                                                          \
-            input.data_ptr(),                                                                            \
-            bias.data_ptr(),                                                                             \
-            output.data_ptr<float>(),                                                                    \
-            indices.data_ptr<int32_t>(),                                                                 \
-            num_rows,                                                                                    \
-            topk_group,                                                                                  \
-            topk,                                                                                        \
-            num_fused_shared_experts,                                                                    \
-            routed_scaling_factor,                                                                       \
-            apply_routed_scaling_factor_on_output);                                                      \
-    dispatched = true;                                                                                   \
+#define LAUNCH_MOE_GATE_CONFIG(T, EXPERTS, EXPERT_GROUP)                                                      \
+  do {                                                                                                        \
+    constexpr int VPT = (EXPERTS) / (EXPERT_GROUP);                                                           \
+    /* If EXPERT_GROUP > WARP_SIZE, fall back to 1 row per warp */                                            \
+    constexpr int ROWS_PER_WARP = ((EXPERT_GROUP) <= WARP_SIZE) ? (WARP_SIZE / (EXPERT_GROUP)) : 1;           \
+    constexpr int ROWS_PER_CTA = WARPS_PER_CTA * ROWS_PER_WARP;                                               \
+    cudaLaunchConfig_t config;                                                                                \
+    config.gridDim = num_blocks;                                                                              \
+    config.blockDim = block_dim;                                                                              \
+    config.dynamicSmemBytes = 0;                                                                              \
+    config.stream = stream;                                                                                   \
+    cudaLaunchAttribute attrs[1];                                                                             \
+    attrs[0].id = cudaLaunchAttributeProgrammaticStreamSerialization;                                         \
+    attrs[0].val.programmaticStreamSerializationAllowed = getEnvEnablePDL();                                  \
+    config.numAttrs = 1;                                                                                      \
+    config.attrs = attrs;                                                                                     \
+    cudaLaunchKernelEx(                                                                                       \
+        &config,                                                                                              \
+        moe_fused_gate_kernel<T, VPT, (EXPERTS), (EXPERT_GROUP), ROWS_PER_WARP, ROWS_PER_CTA, WARPS_PER_CTA>, \
+        input.data_ptr(),                                                                                     \
+        bias.data_ptr(),                                                                                      \
+        output.data_ptr<float>(),                                                                             \
+        indices.data_ptr<int32_t>(),                                                                          \
+        num_rows,                                                                                             \
+        topk_group,                                                                                           \
+        topk,                                                                                                 \
+        num_fused_shared_experts,                                                                             \
+        routed_scaling_factor,                                                                                \
+        apply_routed_scaling_factor_on_output);                                                               \
+    dispatched = true;                                                                                        \
   } while (0)
 
 //------------------------------------------------------------------------------
@@ -351,6 +370,9 @@ __global__ void moe_fused_gate_kernel_dynamic(
     int64_t num_fused_shared_experts,
     double routed_scaling_factor,
     bool apply_routed_scaling_factor_on_output) {
+#if (defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 900))
+  cudaGridDependencySynchronize();
+#endif
   KernelParamsDynamic params;
   params.NUM_EXPERTS = num_experts;             // e.g, for deepseek v3, this is 256
   params.VPT = num_experts / num_expert_group;  // e.g., for deepseek v3, this is 256 / 8 = 32
@@ -371,6 +393,9 @@ __global__ void moe_fused_gate_kernel_dynamic(
       routed_scaling_factor,
       apply_routed_scaling_factor_on_output,
       params);
+#if (defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 900))
+  cudaTriggerProgrammaticLaunchCompletion();
+#endif
 }
 
 //------------------------------------------------------------------------------
@@ -473,8 +498,21 @@ std::vector<at::Tensor> moe_fused_gate(
   if (!dispatched) {
     // Fallback to the dynamic kernel if none of the supported combinations match.
     // currently only support num_experts / num_expert_group <= 32 for dynamic kernels
+    cudaLaunchConfig_t config;
+    config.gridDim = num_blocks;
+    config.blockDim = block_dim;
+    config.dynamicSmemBytes = 0;
+    config.stream = stream;
+    cudaLaunchAttribute attrs[1];
+    attrs[0].id = cudaLaunchAttributeProgrammaticStreamSerialization;
+    attrs[0].val.programmaticStreamSerializationAllowed = getEnvEnablePDL();
+    config.numAttrs = 1;
+    config.attrs = attrs;
+
     if (input.scalar_type() == at::kBFloat16) {
-      moe_fused_gate_kernel_dynamic<bfloat16_t><<<num_blocks, block_dim, 0, stream>>>(
+      cudaLaunchKernelEx(
+          &config,
+          moe_fused_gate_kernel_dynamic<bfloat16_t>,
           input.data_ptr(),
           bias.data_ptr(),
           output.data_ptr<float>(),
@@ -488,7 +526,9 @@ std::vector<at::Tensor> moe_fused_gate(
           routed_scaling_factor,
           apply_routed_scaling_factor_on_output);
     } else if (input.scalar_type() == at::kHalf) {
-      moe_fused_gate_kernel_dynamic<float16_t><<<num_blocks, block_dim, 0, stream>>>(
+      cudaLaunchKernelEx(
+          &config,
+          moe_fused_gate_kernel_dynamic<float16_t>,
           input.data_ptr(),
           bias.data_ptr(),
           output.data_ptr<float>(),
@@ -502,7 +542,9 @@ std::vector<at::Tensor> moe_fused_gate(
           routed_scaling_factor,
           apply_routed_scaling_factor_on_output);
     } else if (input.scalar_type() == at::kFloat) {
-      moe_fused_gate_kernel_dynamic<float32_t><<<num_blocks, block_dim, 0, stream>>>(
+      cudaLaunchKernelEx(
+          &config,
+          moe_fused_gate_kernel_dynamic<float32_t>,
           input.data_ptr(),
           bias.data_ptr(),
           output.data_ptr<float>(),

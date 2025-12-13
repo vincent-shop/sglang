@@ -80,6 +80,9 @@ __launch_bounds__(TPB) __global__ void moeSoftmax(
     const int num_cols,
     const float moe_softcapping,
     const float* correction_bias) {
+#if (defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 900))
+  cudaGridDependencySynchronize();
+#endif
   using BlockReduce = cub::BlockReduce<float, TPB>;
   __shared__ typename BlockReduce::TempStorage tmpStorage;
 
@@ -92,6 +95,9 @@ __launch_bounds__(TPB) __global__ void moeSoftmax(
 
   // Don't touch finished rows.
   if ((finished != nullptr) && finished[blockIdx.x]) {
+#if (defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 900))
+    cudaTriggerProgrammaticLaunchCompletion();
+#endif
     return;
   }
 
@@ -141,6 +147,9 @@ __launch_bounds__(TPB) __global__ void moeSoftmax(
     const float softmax_val = exp((output[idx] - float_max)) * normalizing_factor;
     output[idx] = softmax_val;
   }
+#if (defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 900))
+  cudaTriggerProgrammaticLaunchCompletion();
+#endif
 }
 
 template <int TPB>
@@ -154,6 +163,9 @@ __launch_bounds__(TPB) __global__ void moeTopK(
     const int start_expert,
     const int end_expert,
     const bool renormalize) {
+#if (defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 900))
+  cudaGridDependencySynchronize();
+#endif
   using cub_kvp = cub::KeyValuePair<int, float>;
   using BlockReduce = cub::BlockReduce<cub_kvp, TPB>;
   __shared__ typename BlockReduce::TempStorage tmpStorage;
@@ -210,6 +222,9 @@ __launch_bounds__(TPB) __global__ void moeTopK(
       output[idx] = output[idx] * row_sum_for_renormalize_inv;
     }
   }
+#if (defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 900))
+  cudaTriggerProgrammaticLaunchCompletion();
+#endif
 }
 
 // ====================== TopK softmax things ===============================
@@ -239,6 +254,9 @@ __launch_bounds__(WARPS_PER_CTA* WARP_SIZE) __global__ void topkGatingSoftmax(
     const bool renormalize,
     const float moe_softcapping,
     const float* correction_bias) {
+#if (defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 900))
+  cudaGridDependencySynchronize();
+#endif
   // We begin by enforcing compile time assertions and setting up compile time constants.
   static_assert(VPT == (VPT & -VPT), "VPT must be power of 2");
   static_assert(NUM_EXPERTS == (NUM_EXPERTS & -NUM_EXPERTS), "NUM_EXPERTS must be power of 2");
@@ -475,6 +493,9 @@ __launch_bounds__(WARPS_PER_CTA* WARP_SIZE) __global__ void topkGatingSoftmax(
       output[idx] = output[idx] * row_sum_for_renormalize_inv;
     }
   }
+#if (defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 900))
+  cudaTriggerProgrammaticLaunchCompletion();
+#endif
 }
 
 namespace detail {
@@ -514,7 +535,21 @@ void topkGatingSoftmaxLauncherHelper(
   const int num_blocks = (num_warps + WARPS_PER_TB - 1) / WARPS_PER_TB;
 
   dim3 block_dim(WARP_SIZE, WARPS_PER_TB);
-  topkGatingSoftmax<T, VPT, EXPERTS, WARPS_PER_TB, BYTES_PER_LDG><<<num_blocks, block_dim, 0, stream>>>(
+
+  cudaLaunchConfig_t config;
+  config.gridDim = num_blocks;
+  config.blockDim = block_dim;
+  config.dynamicSmemBytes = 0;
+  config.stream = stream;
+  cudaLaunchAttribute attrs[1];
+  attrs[0].id = cudaLaunchAttributeProgrammaticStreamSerialization;
+  attrs[0].val.programmaticStreamSerializationAllowed = getEnvEnablePDL();
+  config.numAttrs = 1;
+  config.attrs = attrs;
+
+  cudaLaunchKernelEx(
+      &config,
+      topkGatingSoftmax<T, VPT, EXPERTS, WARPS_PER_TB, BYTES_PER_LDG>,
       input,
       finished,
       output,
@@ -590,10 +625,39 @@ void topkGatingSoftmaxKernelLauncher(
           softmax_workspace != nullptr,
           "softmax_workspace must be provided for num_experts that are not a power of 2.");
       static constexpr int TPB = 256;
-      moeSoftmax<T, TPB><<<num_tokens, TPB, 0, stream>>>(
-          gating_output, nullptr, softmax_workspace, num_experts, moe_softcapping, correction_bias);
-      moeTopK<TPB><<<num_tokens, TPB, 0, stream>>>(
-          softmax_workspace, nullptr, topk_weights, topk_indices, num_experts, topk, 0, num_experts, renormalize);
+
+      cudaLaunchConfig_t config;
+      config.gridDim = num_tokens;
+      config.blockDim = TPB;
+      config.dynamicSmemBytes = 0;
+      config.stream = stream;
+      cudaLaunchAttribute attrs[1];
+      attrs[0].id = cudaLaunchAttributeProgrammaticStreamSerialization;
+      attrs[0].val.programmaticStreamSerializationAllowed = getEnvEnablePDL();
+      config.numAttrs = 1;
+      config.attrs = attrs;
+
+      cudaLaunchKernelEx(
+          &config,
+          moeSoftmax<T, TPB>,
+          gating_output,
+          nullptr,
+          softmax_workspace,
+          num_experts,
+          moe_softcapping,
+          correction_bias);
+      cudaLaunchKernelEx(
+          &config,
+          moeTopK<TPB>,
+          softmax_workspace,
+          nullptr,
+          topk_weights,
+          topk_indices,
+          num_experts,
+          topk,
+          0,
+          num_experts,
+          renormalize);
     }
   }
 }

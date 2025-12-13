@@ -75,10 +75,16 @@ __device__ float convert_to_float(T x) {
 template <typename T, int TPB>
 __launch_bounds__(TPB) __global__ void moeSigmoid(
     const T* input, const bool* finished, float* output, const int num_cols, const float* correction_bias) {
+#if (defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 900))
+  cudaGridDependencySynchronize();
+#endif
   const int thread_row_offset = blockIdx.x * num_cols;
 
   // Don't touch finished rows.
   if ((finished != nullptr) && finished[blockIdx.x]) {
+#if (defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 900))
+    cudaTriggerProgrammaticLaunchCompletion();
+#endif
     return;
   }
 
@@ -96,6 +102,9 @@ __launch_bounds__(TPB) __global__ void moeSigmoid(
 
     output[idx] = val;  // Store transformed value
   }
+#if (defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 900))
+  cudaTriggerProgrammaticLaunchCompletion();
+#endif
 }
 
 template <int TPB>
@@ -110,6 +119,9 @@ __launch_bounds__(TPB) __global__ void moeTopK(
     const int end_expert,
     const bool renormalize,
     const float* correction_bias) {
+#if (defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 900))
+  cudaGridDependencySynchronize();
+#endif
   using cub_kvp = cub::KeyValuePair<int, float>;
   using BlockReduce = cub::BlockReduce<cub_kvp, TPB>;
   __shared__ typename BlockReduce::TempStorage tmpStorage;
@@ -170,6 +182,9 @@ __launch_bounds__(TPB) __global__ void moeTopK(
       output[idx] = output[idx] * row_sum_for_renormalize_inv;
     }
   }
+#if (defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 900))
+  cudaTriggerProgrammaticLaunchCompletion();
+#endif
 }
 
 // ====================== TopK sigmoid things ===============================
@@ -198,6 +213,9 @@ __launch_bounds__(WARPS_PER_CTA* WARP_SIZE) __global__ void topkGatingSigmoid(
     const int end_expert,
     const bool renormalize,
     const float* correction_bias) {
+#if (defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 900))
+  cudaGridDependencySynchronize();
+#endif
   // We begin by enforcing compile time assertions and setting up compile time constants.
   static_assert(VPT == (VPT & -VPT), "VPT must be power of 2");
   static_assert(NUM_EXPERTS == (NUM_EXPERTS & -NUM_EXPERTS), "NUM_EXPERTS must be power of 2");
@@ -374,6 +392,9 @@ __launch_bounds__(WARPS_PER_CTA* WARP_SIZE) __global__ void topkGatingSigmoid(
       output[idx] = output[idx] * row_sum_for_renormalize_inv;
     }
   }
+#if (defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 900))
+  cudaTriggerProgrammaticLaunchCompletion();
+#endif
 }
 
 namespace detail {
@@ -412,8 +433,31 @@ void topkGatingSigmoidLauncherHelper(
   const int num_blocks = (num_warps + WARPS_PER_TB - 1) / WARPS_PER_TB;
 
   dim3 block_dim(WARP_SIZE, WARPS_PER_TB);
-  topkGatingSigmoid<T, VPT, EXPERTS, WARPS_PER_TB, BYTES_PER_LDG><<<num_blocks, block_dim, 0, stream>>>(
-      input, finished, output, num_rows, indices, k, start_expert, end_expert, renormalize, correction_bias);
+
+  cudaLaunchConfig_t config;
+  config.gridDim = num_blocks;
+  config.blockDim = block_dim;
+  config.dynamicSmemBytes = 0;
+  config.stream = stream;
+  cudaLaunchAttribute attrs[1];
+  attrs[0].id = cudaLaunchAttributeProgrammaticStreamSerialization;
+  attrs[0].val.programmaticStreamSerializationAllowed = getEnvEnablePDL();
+  config.numAttrs = 1;
+  config.attrs = attrs;
+
+  cudaLaunchKernelEx(
+      &config,
+      topkGatingSigmoid<T, VPT, EXPERTS, WARPS_PER_TB, BYTES_PER_LDG>,
+      input,
+      finished,
+      output,
+      num_rows,
+      indices,
+      k,
+      start_expert,
+      end_expert,
+      renormalize,
+      correction_bias);
 }
 
 #define LAUNCH_SIGMOID(TYPE, NUM_EXPERTS, WARPS_PER_TB)             \
@@ -476,9 +520,23 @@ void topkGatingSigmoidKernelLauncher(
           sigmoid_workspace != nullptr,
           "sigmoid_workspace must be provided for num_experts that are not a power of 2.");
       static constexpr int TPB = 256;
-      moeSigmoid<T, TPB>
-          <<<num_tokens, TPB, 0, stream>>>(gating_output, nullptr, sigmoid_workspace, num_experts, correction_bias);
-      moeTopK<TPB><<<num_tokens, TPB, 0, stream>>>(
+
+      cudaLaunchConfig_t config;
+      config.gridDim = num_tokens;
+      config.blockDim = TPB;
+      config.dynamicSmemBytes = 0;
+      config.stream = stream;
+      cudaLaunchAttribute attrs[1];
+      attrs[0].id = cudaLaunchAttributeProgrammaticStreamSerialization;
+      attrs[0].val.programmaticStreamSerializationAllowed = getEnvEnablePDL();
+      config.numAttrs = 1;
+      config.attrs = attrs;
+
+      cudaLaunchKernelEx(
+          &config, moeSigmoid<T, TPB>, gating_output, nullptr, sigmoid_workspace, num_experts, correction_bias);
+      cudaLaunchKernelEx(
+          &config,
+          moeTopK<TPB>,
           sigmoid_workspace,
           nullptr,
           topk_weights,
