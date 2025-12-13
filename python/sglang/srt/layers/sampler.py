@@ -17,8 +17,9 @@ from sglang.srt.server_args import get_global_server_args
 from sglang.srt.utils import crash_on_warnings, get_bool_env_var, is_cuda, is_npu
 
 if is_cuda():
-    from sgl_kernel import (
+    from sglang.srt.sampling.utils import (
         min_p_sampling_from_probs,
+        top_k_raw,
         top_k_renorm_prob,
         top_k_top_p_sampling_from_probs,
         top_p_renorm_prob,
@@ -419,9 +420,17 @@ def get_top_logprobs(
     top_logprobs_nums: List[int],
 ):
     max_k = max(top_logprobs_nums)
-    ret = logprobs.topk(max_k, dim=1)
-    values = ret.values.tolist()
-    indices = ret.indices.tolist()
+    if is_cuda() and top_k_raw is not None and logprobs.shape[1] > 10000:
+        # Use flashinfer radix top_k for large vocabularies
+        # flashinfer.top_k returns (values, indices)
+        values, indices = top_k_raw(logprobs, max_k, sorted=True)
+        # Convert to list for processing
+        values = values.tolist()
+        indices = indices.tolist()
+    else:
+        ret = logprobs.topk(max_k, dim=1)
+        values = ret.values.tolist()
+        indices = ret.indices.tolist()
 
     output_top_logprobs_val = []
     output_top_logprobs_idx = []

@@ -42,12 +42,10 @@ if TYPE_CHECKING:
     from sglang.srt.speculative.eagle_info import EagleDraftInput, EagleVerifyInput
 
 if is_cuda():
-    from sgl_kernel import (
-        top_k_renorm_prob,
-        top_p_renorm_prob,
-        tree_speculative_sampling_target_only,
-    )
+    from sgl_kernel import tree_speculative_sampling_target_only
     from sgl_kernel.top_k import fast_topk
+
+    from sglang.srt.sampling.utils import top_k_renorm_prob, top_p_renorm_prob
 
 
 @triton.jit
