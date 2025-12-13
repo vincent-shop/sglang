@@ -24,6 +24,28 @@ if is_cuda():
         top_p_renorm_prob,
     )
 
+    # ==========================================================================
+    # OPTIMIZATION OPPORTUNITY (ref: TensorRT-LLM PR #9457)
+    # ==========================================================================
+    # FlashInfer provides specialized sampling kernels that use rejection sampling
+    # without explicit sorting, which can be faster than the combined kernel:
+    #
+    #   - top_k_sampling_from_probs    : for top-k only (no top-p)
+    #   - top_p_sampling_from_probs    : for top-p only (no top-k)
+    #   - sampling_from_probs          : for temperature-only (no filtering)
+    #
+    # Currently SGLang uses top_k_top_p_sampling_from_probs for ALL cases.
+    #
+    # sgl_kernel API availability (as of now):
+    #   ✓ top_p_sampling_from_probs    - AVAILABLE in sgl_kernel, can use for top-p only
+    #   ✗ top_k_sampling_from_probs    - NOT EXPORTED, would need to add to sgl_kernel
+    #   ✗ sampling_from_probs          - NOT EXPORTED, would need to add to sgl_kernel
+    #
+    # Immediate optimization: Use top_p_sampling_from_probs for top-p-only cases.
+    #   from sgl_kernel import top_p_sampling_from_probs
+    # Future: Add top_k_sampling_from_probs to sgl_kernel for top-k-only cases.
+    # ==========================================================================
+
 if is_npu():
     import torch_npu
 
@@ -125,6 +147,14 @@ class Sampler(nn.Module):
 
             if can_sample_directly_from_probs:
                 # when we don't need top-k, top-p, or min-p sampling, we can directly sample from the probs
+                # ==============================================================
+                # NOTE: This is already an optimized path for temperature-only.
+                # Currently uses torch.multinomial via sampling_from_probs_torch.
+                #
+                # FlashInfer provides flashinfer.sampling.sampling_from_probs
+                # which may be faster. The TensorRT-LLM PR uses
+                # flashinfer.sampling.sampling_from_logits for this case.
+                # ==============================================================
                 batch_next_token_ids = sampling_from_probs_torch(
                     probs,
                     sampling_seed=sampling_info.sampling_seed,
@@ -139,6 +169,40 @@ class Sampler(nn.Module):
                             probs, sampling_info.min_ps
                         )
                     else:
+                        # ==============================================================
+                        # OPTIMIZATION OPPORTUNITY (ref: TensorRT-LLM PR #9457)
+                        # ==============================================================
+                        # Currently: We use top_k_top_p_sampling_from_probs for ALL
+                        # non-min_p cases, even when only top-k OR only top-p is needed.
+                        #
+                        # The combined kernel has overhead even when one filter is unused.
+                        # FlashInfer's specialized kernels use rejection sampling without
+                        # explicit sorting, which is faster for single-filter cases.
+                        #
+                        # API Availability in sgl_kernel:
+                        #   ✓ top_p_sampling_from_probs  - AVAILABLE, can use NOW
+                        #   ✗ top_k_sampling_from_probs  - NOT in sgl_kernel (exists in flashinfer)
+                        #
+                        # IMMEDIATE OPTIMIZATION (top-p only case):
+                        # -----------------------------------------
+                        # top_p_only = sampling_info.need_top_p_sampling and not sampling_info.need_top_k_sampling
+                        # if top_p_only:
+                        #     batch_next_token_ids = top_p_sampling_from_probs(
+                        #         probs.contiguous(),
+                        #         sampling_info.top_ps,
+                        #         check_nan=self.use_nan_detection,
+                        #     )
+                        #
+                        # FUTURE OPTIMIZATION (requires adding API to sgl_kernel):
+                        # --------------------------------------------------------
+                        # top_k_only = sampling_info.need_top_k_sampling and not sampling_info.need_top_p_sampling
+                        # if top_k_only:
+                        #     batch_next_token_ids = top_k_sampling_from_probs(
+                        #         probs.contiguous(),
+                        #         sampling_info.top_ks,
+                        #         check_nan=self.use_nan_detection,
+                        #     )
+                        # ==============================================================
                         batch_next_token_ids = top_k_top_p_sampling_from_probs(
                             probs.contiguous(),
                             sampling_info.top_ks,
