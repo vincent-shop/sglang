@@ -1,0 +1,84 @@
+model_provider = "shopify_openai_proxy"
+model = "gpt-5.1-codex"
+approval_policy = "never"
+sandbox_mode = "danger-full-access"
+model_reasoning_effort = "low"
+
+[features]
+rmcp_client = true
+web_search_request = true
+
+[tui]
+notifications = ["agent-turn-complete", "approval-requested"]
+
+[shell_environment_policy]
+inherit = "all"
+ignore_default_excludes = true
+
+[sandbox_workspace_write]
+network_access = true
+exclude_tmpdir_env_var = false
+exclude_slash_tmp = false
+
+[model_providers.shopify_openai_proxy]
+name = "Shopify OpenAI Proxy"
+base_url = "https://proxy.shopify.ai/v1"
+env_key = "SHOPIFY_PROXY_API_KEY"
+wire_api = "responses"
+
+[projects."/Users/vincentzhong/src/github.com/Shopify/discovery"]
+trust_level = "trusted"
+
+[projects."/Users/vincentzhong/src/github.com/Shopify/index-serving"]
+trust_level = "trusted"
+
+[projects."/Users/vincentzhong/src/github.com/Shopify/oasis-backend"]
+trust_level = "trusted"
+
+[projects."/Users/vincentzhong/src/github.com/wolfgarbe/SymSpell"]
+trust_level = "trusted"
+
+[projects."/Users/vincentzhong/src/github.com/Shopify"]
+trust_level = "trusted"
+
+[projects."/Users/vincentzhong"]
+trust_level = "trusted"
+
+[projects."/Users/vincentzhong/Downloads/data-p"]
+trust_level = "trusted"
+
+[projects."/Users/vincentzhong/Downloads/nano-vllm"]
+trust_level = "trusted"
+
+[projects."/Users/vincentzhong/src/github.com/openai/codex"]
+trust_level = "trusted"
+
+[projects."/Users/vincentzhong/src/github.com/vllm-project/vllm"]
+trust_level = "trusted"
+
+[projects."/Users/vincentzhong/src/github.com/Shopify/discovery-experience"]
+trust_level = "trusted"
+
+[projects."/Users/vincentzhong/src/github.com/sgl-project/sglang"]
+trust_level = "trusted"
+
+[projects."/Users/vincentzhong/src/github.com/NVIDIA/TensorRT-LLM"]
+trust_level = "trusted"
+
+[projects."/Users/vincentzhong/.memories"]
+trust_level = "trusted"
+
+# [mcp_servers.bigquery]
+# command = "/Users/vincentzhong/toolbox"
+# args = ["--prebuilt", "bigquery", "--stdio"]
+
+# [mcp_servers.bigquery.env]
+# BIGQUERY_PROJECT = "sdp-stg-discovery-experience"
+
+# [mcp_servers.context7]
+# args = ["-y", "@upstash/context7-mcp"]
+# command = "bunx"
+
+[notice]
+hide_gpt5_1_migration_prompt = true
+

@@ -14,14 +14,13 @@
 """Inference-only Molmo2 model compatible with HuggingFace weights."""
 
 import math
+from functools import partial
 from typing import Iterable, List, Optional, Tuple
 
 import torch
 import torch.nn.functional as F
 from torch import nn
 from transformers import PretrainedConfig
-
-from functools import partial
 
 from sglang.srt.distributed import (
     get_pp_group,
@@ -30,9 +29,11 @@ from sglang.srt.distributed import (
     split_tensor_along_last_dim,
     tensor_model_parallel_all_gather,
 )
+from sglang.srt.layers.attention.vision import VisionAttention
 from sglang.srt.layers.dp_attention import get_attention_tp_rank, get_attention_tp_size
 from sglang.srt.layers.layernorm import RMSNorm
 from sglang.srt.layers.linear import (
+    ColumnParallelLinear,
     QKVParallelLinear,
     RowParallelLinear,
 )
@@ -63,7 +64,7 @@ from sglang.srt.utils import add_prefix, make_layers
 
 
 class Molmo2ViTMLP(nn.Module):
-    """MLP for Vision Transformer blocks."""
+    """MLP for Vision Transformer blocks with tensor parallelism support."""
 
     def __init__(
         self,
@@ -73,18 +74,34 @@ class Molmo2ViTMLP(nn.Module):
         prefix: str = "",
     ):
         super().__init__()
-        self.w1 = nn.Linear(hidden_size, intermediate_size, bias=True)
-        self.w2 = nn.Linear(intermediate_size, hidden_size, bias=True)
+        self.fc1 = ColumnParallelLinear(
+            hidden_size,
+            intermediate_size,
+            bias=True,
+            quant_config=quant_config,
+            prefix=add_prefix("fc1", prefix),
+        )
+        self.fc2 = RowParallelLinear(
+            intermediate_size,
+            hidden_size,
+            bias=True,
+            quant_config=quant_config,
+            prefix=add_prefix("fc2", prefix),
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.w1(x)
+        x, _ = self.fc1(x)
         x = F.gelu(x, approximate="tanh")
-        x = self.w2(x)
+        x, _ = self.fc2(x)
         return x
 
 
-class Molmo2ViTAttention(nn.Module):
-    """Multi-head attention for Vision Transformer."""
+class Molmo2PoolingCrossAttention(nn.Module):
+    """Cross-attention for pooling in Molmo2 vision backbone.
+
+    This is kept as simple nn.Linear since it's a small cross-attention layer
+    that takes query and key-value from different sources (pooling operation).
+    """
 
     def __init__(
         self,
@@ -113,12 +130,9 @@ class Molmo2ViTAttention(nn.Module):
     def forward(
         self,
         inputs_q: torch.Tensor,
-        inputs_kv: Optional[torch.Tensor] = None,
+        inputs_kv: torch.Tensor,
         attn_mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
-        if inputs_kv is None:
-            inputs_kv = inputs_q
-
         batch_size, seq_len, _ = inputs_q.shape
 
         q = self.wq(inputs_q)
@@ -145,25 +159,26 @@ class Molmo2ViTAttention(nn.Module):
 
 
 class Molmo2VisionBlock(nn.Module):
-    """Single block in the Vision Transformer."""
+    """Single block in the Vision Transformer using VisionAttention for multiple backends."""
 
     def __init__(
         self,
         hidden_size: int,
         num_heads: int,
-        num_kv_heads: int,
-        head_dim: int,
         intermediate_size: int,
         layer_norm_eps: float = 1e-6,
         quant_config: Optional[QuantizationConfig] = None,
         prefix: str = "",
     ):
         super().__init__()
-        self.attention = Molmo2ViTAttention(
-            hidden_size=hidden_size,
+        self.attention = VisionAttention(
+            embed_dim=hidden_size,
             num_heads=num_heads,
-            num_kv_heads=num_kv_heads,
-            head_dim=head_dim,
+            projection_size=hidden_size,
+            use_qkv_parallel=True,
+            proj_bias=True,
+            qkv_bias=True,
+            flatten_batch=True,
             quant_config=quant_config,
             prefix=add_prefix("attention", prefix),
         )
@@ -176,21 +191,26 @@ class Molmo2VisionBlock(nn.Module):
         self.attention_norm = nn.LayerNorm(hidden_size, eps=layer_norm_eps)
         self.ffn_norm = nn.LayerNorm(hidden_size, eps=layer_norm_eps)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = x + self.attention(self.attention_norm(x))
+    def forward(
+        self,
+        x: torch.Tensor,
+        cu_seqlens: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        # x shape: (batch, seq_len, hidden_size)
+        normed = self.attention_norm(x)
+        attn_out = self.attention(normed, cu_seqlens=cu_seqlens)
+        x = x + attn_out
         x = x + self.feed_forward(self.ffn_norm(x))
         return x
 
 
 class Molmo2VisionTransformer(nn.Module):
-    """Vision Transformer for Molmo2."""
+    """Vision Transformer for Molmo2 with VisionAttention backends."""
 
     def __init__(
         self,
         hidden_size: int,
         num_heads: int,
-        num_kv_heads: int,
-        head_dim: int,
         intermediate_size: int,
         num_hidden_layers: int,
         image_num_pos: int,
@@ -219,8 +239,6 @@ class Molmo2VisionTransformer(nn.Module):
                 Molmo2VisionBlock(
                     hidden_size=hidden_size,
                     num_heads=num_heads,
-                    num_kv_heads=num_kv_heads,
-                    head_dim=head_dim,
                     intermediate_size=intermediate_size,
                     layer_norm_eps=layer_norm_eps,
                     quant_config=quant_config,
@@ -268,12 +286,23 @@ class Molmo2VisionTransformer(nn.Module):
             patch_num_side = int(math.sqrt(self.image_num_pos))
             patch_num = (patch_num_side, patch_num_side)
 
+        batch_size, seq_len = x.shape[:2]
+
         x = self.patch_embedding(x)
         x = self.add_pos_emb(x, patch_num)
 
+        # Compute cu_seqlens for VisionAttention (all same length)
+        cu_seqlens = torch.arange(
+            0,
+            (batch_size + 1) * seq_len,
+            step=seq_len,
+            dtype=torch.int32,
+            device=x.device,
+        )
+
         hidden_states = []
         for block in self.resblocks:
-            x = block(x)
+            x = block(x, cu_seqlens=cu_seqlens)
             hidden_states.append(x)
 
         return hidden_states
@@ -327,8 +356,6 @@ class Molmo2VisionBackbone(nn.Module):
         self.image_vit = Molmo2VisionTransformer(
             hidden_size=vit_config.hidden_size,
             num_heads=vit_config.num_attention_heads,
-            num_kv_heads=vit_config.num_key_value_heads,
-            head_dim=vit_config.head_dim,
             intermediate_size=vit_config.intermediate_size,
             num_hidden_layers=num_hidden_layers,
             image_num_pos=vit_config.image_num_pos,
@@ -339,7 +366,7 @@ class Molmo2VisionBackbone(nn.Module):
         )
 
         pool_dim = vit_config.hidden_size * len(adapter_config.vit_layers)
-        self.image_pooling_2d = Molmo2ViTAttention(
+        self.image_pooling_2d = Molmo2PoolingCrossAttention(
             hidden_size=adapter_config.hidden_size,
             num_heads=adapter_config.num_attention_heads,
             num_kv_heads=adapter_config.num_key_value_heads,
@@ -859,13 +886,20 @@ class Molmo2ForConditionalGeneration(nn.Module):
         # Weight name mappings from checkpoint to our module names
         stacked_params_mapping = [
             # (param_name, shard_name, shard_id)
-            # For QKV projection
+            # For QKV projection (text)
             ("qkv_proj", "q_proj", "q"),
             ("qkv_proj", "k_proj", "k"),
             ("qkv_proj", "v_proj", "v"),
-            # For MLP gate/up projection
+            # For MLP gate/up projection (text)
             ("gate_up_proj", "gate_proj", 0),
             ("gate_up_proj", "up_proj", 1),
+        ]
+
+        # Vision attention stacked params (wq/wk/wv -> qkv_proj)
+        vision_attn_stacked_mapping = [
+            ("qkv_proj", "wq", "q"),
+            ("qkv_proj", "wk", "k"),
+            ("qkv_proj", "wv", "v"),
         ]
 
         params_dict = dict(self.named_parameters(remove_duplicate=False))
@@ -882,7 +916,7 @@ class Molmo2ForConditionalGeneration(nn.Module):
             # Fused weights (att_proj, ff_proj) should be loaded directly, not through stacked_params_mapping
             is_fused_weight = "att_proj" in name or "ff_proj" in name
             is_mlp_fused = "ff_proj" in name
-            
+
             name = name.replace("self_attn.att_proj", "self_attn.qkv_proj")
             name = name.replace("self_attn.attn_out", "self_attn.o_proj")
             name = name.replace("mlp.ff_proj", "mlp.gate_up_proj")
@@ -919,6 +953,36 @@ class Molmo2ForConditionalGeneration(nn.Module):
             name = name.replace(
                 "image_vit.transformer.resblocks", "image_vit.resblocks"
             )
+
+            # Vision MLP weight mapping: w1 -> fc1, w2 -> fc2
+            if "feed_forward" in name and "resblocks" in name:
+                name = name.replace(".w1.", ".fc1.")
+                name = name.replace(".w2.", ".fc2.")
+
+            # Vision attention output projection: wo -> proj
+            if "attention.wo" in name and "resblocks" in name:
+                name = name.replace(".attention.wo.", ".attention.proj.")
+
+            # Handle vision attention QKV stacked weights (wq/wk/wv -> qkv_proj)
+            is_vision_attn_stacked = False
+            if "resblocks" in name and "attention" in name:
+                for param_name, weight_name, shard_id in vision_attn_stacked_mapping:
+                    if f".{weight_name}." not in name:
+                        continue
+                    name = name.replace(f".{weight_name}.", f".{param_name}.")
+                    if name.endswith(".bias") and name not in params_dict:
+                        continue
+                    if name not in params_dict:
+                        continue
+                    param = params_dict[name]
+                    weight_loader = param.weight_loader
+                    weight_loader(param, loaded_weight, shard_id)
+                    loaded_params.add(name)
+                    is_vision_attn_stacked = True
+                    break
+
+            if is_vision_attn_stacked:
+                continue
 
             is_stacked = False
             if not is_fused_weight:
