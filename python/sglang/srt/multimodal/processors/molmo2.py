@@ -104,10 +104,10 @@ class Molmo2MultimodalProcessor(BaseMultimodalProcessor):
 
         for i in range(num_items):
             # Determine number of crops/frames for this item
-            if num_items_info is not None:
-                num_pixels = (
-                    num_items_info[i].item() if not is_video else grids[i][0].item()
-                )
+            if num_items_info is not None and not is_video:
+                num_pixels = num_items_info[i].item()
+            elif is_video and grids is not None:
+                num_pixels = grids[i][0].item()
             else:
                 num_pixels = pixel_values.shape[0] // num_items
 
@@ -146,9 +146,9 @@ class Molmo2MultimodalProcessor(BaseMultimodalProcessor):
         self,
         image_data: Optional[List[Union[str, bytes, Image.Image]]],
         audio_data,
-        input_text: Union[str, List[int]],
+        input_text,
         request_obj,
-        max_req_input_len: int = None,
+        max_req_input_len: Optional[int] = None,
         **kwargs,
     ):
         """Process multimodal data for Molmo2."""
@@ -182,6 +182,7 @@ class Molmo2MultimodalProcessor(BaseMultimodalProcessor):
         )
 
         input_ids = result["input_ids"].flatten()
+        assert self.image_patch_id is not None
         all_offsets = self.get_mm_items_offset(input_ids, self.image_patch_id)
         mm_items = []
 
