@@ -24,15 +24,15 @@ from transformers import PretrainedConfig
 from functools import partial
 
 from sglang.srt.distributed import (
+    get_pp_group,
     get_tensor_model_parallel_rank,
     get_tensor_model_parallel_world_size,
     split_tensor_along_last_dim,
     tensor_model_parallel_all_gather,
 )
-from sglang.srt.layers.activation import SiluAndMul
+from sglang.srt.layers.dp_attention import get_attention_tp_rank, get_attention_tp_size
 from sglang.srt.layers.layernorm import RMSNorm
 from sglang.srt.layers.linear import (
-    MergedColumnParallelLinear,
     QKVParallelLinear,
     RowParallelLinear,
 )
@@ -40,6 +40,7 @@ from sglang.srt.layers.logits_processor import LogitsProcessor
 from sglang.srt.layers.quantization.base_config import QuantizationConfig
 from sglang.srt.layers.radix_attention import RadixAttention
 from sglang.srt.layers.rotary_embedding import get_rope
+from sglang.srt.layers.utils import PPMissingLayer
 from sglang.srt.layers.vocab_parallel_embedding import (
     ParallelLMHead,
     VocabParallelEmbedding,
@@ -50,8 +51,9 @@ from sglang.srt.managers.schedule_batch import (
     MultimodalDataItem,
     MultimodalInputs,
 )
-from sglang.srt.model_executor.forward_batch_info import ForwardBatch
+from sglang.srt.model_executor.forward_batch_info import ForwardBatch, PPProxyTensors
 from sglang.srt.model_loader.weight_utils import default_weight_loader
+from sglang.srt.models.qwen2 import Qwen2MLP
 from sglang.srt.utils import add_prefix, make_layers
 
 
@@ -202,19 +204,16 @@ class Molmo2VisionTransformer(nn.Module):
         self.image_patch_size = image_patch_size
         self.image_num_pos = image_num_pos
 
-        # Patch embedding
         self.patch_embedding = nn.Linear(
             image_patch_size * image_patch_size * 3,
             hidden_size,
             bias=True,
         )
 
-        # Positional embedding
         self.positional_embedding = nn.Parameter(
             torch.zeros(image_num_pos, hidden_size)
         )
 
-        # Transformer blocks
         self.resblocks = nn.ModuleList(
             [
                 Molmo2VisionBlock(
@@ -321,11 +320,10 @@ class Molmo2VisionBackbone(nn.Module):
             else:
                 self.vit_layers.append(layer + vit_config.num_hidden_layers)
 
-        # Maybe reduce ViT layers if we don't need all
+        # Reduce ViT layers if we don't need all of them
         last_layer_needed = max(self.vit_layers) + 1
         num_hidden_layers = min(last_layer_needed, vit_config.num_hidden_layers)
 
-        # Vision transformer
         self.image_vit = Molmo2VisionTransformer(
             hidden_size=vit_config.hidden_size,
             num_heads=vit_config.num_attention_heads,
@@ -340,7 +338,6 @@ class Molmo2VisionBackbone(nn.Module):
             prefix=add_prefix("image_vit", prefix),
         )
 
-        # Pooling attention
         pool_dim = vit_config.hidden_size * len(adapter_config.vit_layers)
         self.image_pooling_2d = Molmo2ViTAttention(
             hidden_size=adapter_config.hidden_size,
@@ -352,7 +349,6 @@ class Molmo2VisionBackbone(nn.Module):
             prefix=add_prefix("image_pooling_2d", prefix),
         )
 
-        # Image projector
         self.image_projector = Molmo2ImageProjectorMLP(
             input_dim=adapter_config.hidden_size,
             hidden_dim=adapter_config.intermediate_size,
@@ -412,7 +408,6 @@ class Molmo2VisionBackbone(nn.Module):
         valid = pooled_patches_idx >= 0
         valid_token = torch.any(valid, -1)
 
-        # Use pooled_patches_idx to arrange features for pooling
         batch_idx = torch.arange(
             pooled_patches_idx.shape[0],
             dtype=torch.long,
@@ -423,14 +418,12 @@ class Molmo2VisionBackbone(nn.Module):
             [1, pooled_patches_idx.shape[1], pooled_patches_idx.shape[2]],
         )
 
-        # Reshape and gather
         to_pool = image_features.reshape(batch_size, -1, dim)[
             batch_idx, torch.clamp(pooled_patches_idx, min=0)
         ]
         to_pool = to_pool * valid.to(self.dtype)[:, :, :, None]
         to_pool = to_pool.reshape(-1, pooled_patches_idx.shape[-1], dim)
 
-        # Attention pooling
         if self.pooling_attention_mask:
             attn_mask = valid.reshape(-1, 1, 1, valid.shape[-1])
             # attn_mask needs to be float with -inf for masked positions
@@ -450,10 +443,8 @@ class Molmo2VisionBackbone(nn.Module):
             batch_size, -1, pooled_features.shape[-1]
         )
 
-        # Project to text hidden size
         pooled_features = self.image_projector(pooled_features)
 
-        # Return only valid tokens
         return pooled_features.view(-1, pooled_features.shape[-1])[
             valid_token.flatten()
         ]
@@ -465,7 +456,7 @@ class Molmo2VisionBackbone(nn.Module):
 
 
 class Molmo2Attention(nn.Module):
-    """Attention block for Molmo2 text backbone."""
+    """Attention block for Molmo2 text backbone (OLMo2-style with full-tensor QK norm)."""
 
     def __init__(
         self,
@@ -475,30 +466,29 @@ class Molmo2Attention(nn.Module):
         prefix: str = "",
     ):
         super().__init__()
-        self.config = config
         self.hidden_size = config.hidden_size
         self.tp_size = get_tensor_model_parallel_world_size()
+        self.tp_rank = get_tensor_model_parallel_rank()
+        attn_tp_rank = get_attention_tp_rank()
+        attn_tp_size = get_attention_tp_size()
+
         self.total_num_heads = config.num_attention_heads
-
-        assert self.hidden_size % self.total_num_heads == 0
-        assert self.total_num_heads % self.tp_size == 0
-
-        self.num_heads = self.total_num_heads // self.tp_size
         self.total_num_kv_heads = config.num_key_value_heads
-
-        if self.total_num_kv_heads >= self.tp_size:
-            assert self.total_num_kv_heads % self.tp_size == 0
-        else:
-            assert self.tp_size % self.total_num_kv_heads == 0
-        self.num_kv_heads = max(1, self.total_num_kv_heads // self.tp_size)
-
         self.head_dim = config.head_dim
+
+        assert self.total_num_heads % attn_tp_size == 0
+        self.num_heads = self.total_num_heads // attn_tp_size
+
+        if self.total_num_kv_heads >= attn_tp_size:
+            assert self.total_num_kv_heads % attn_tp_size == 0
+        else:
+            assert attn_tp_size % self.total_num_kv_heads == 0
+        self.num_kv_heads = max(1, self.total_num_kv_heads // attn_tp_size)
+
         self.q_size = self.num_heads * self.head_dim
         self.kv_size = self.num_kv_heads * self.head_dim
-        self.max_position_embeddings = config.max_position_embeddings
-        self.rope_theta = config.rope_theta
+        self.scaling = self.head_dim**-0.5
 
-        # QKV projection (att_proj in checkpoint)
         self.qkv_proj = QKVParallelLinear(
             self.hidden_size,
             self.head_dim,
@@ -506,52 +496,49 @@ class Molmo2Attention(nn.Module):
             self.total_num_kv_heads,
             bias=getattr(config, "qkv_bias", False),
             quant_config=quant_config,
+            tp_rank=attn_tp_rank,
+            tp_size=attn_tp_size,
             prefix=add_prefix("qkv_proj", prefix),
         )
-        self.tp_rank = get_tensor_model_parallel_rank()
 
-        # QK normalization - OLMo2 style per-layer normalization
+        # QK normalization - OLMo2 style full-tensor normalization (requires TP gather/split)
+        self.q_norm = RMSNorm(self.hidden_size, eps=config.layer_norm_eps)
         self.k_norm = RMSNorm(
-            self.total_num_kv_heads * self.head_dim,
-            eps=config.layer_norm_eps,
-        )
-        self.q_norm = RMSNorm(
-            config.hidden_size,
-            eps=config.layer_norm_eps,
+            self.total_num_kv_heads * self.head_dim, eps=config.layer_norm_eps
         )
 
-        # Determine rope scaling for this layer
+        # Per-layer rope scaling support
         rope_scaling_layers = getattr(config, "rope_scaling_layers", None)
-        if rope_scaling_layers is not None and layer_id not in rope_scaling_layers:
-            # This layer uses default rope (no scaling)
-            rope_scaling = {"rope_type": "default"}
-        else:
-            rope_scaling = config.rope_scaling
+        rope_scaling = (
+            {"rope_type": "default"}
+            if rope_scaling_layers is not None and layer_id not in rope_scaling_layers
+            else config.rope_scaling
+        )
 
         self.rotary_emb = get_rope(
             self.head_dim,
             rotary_dim=self.head_dim,
-            max_position=self.max_position_embeddings,
-            base=self.rope_theta,
+            max_position=config.max_position_embeddings,
+            base=config.rope_theta,
             rope_scaling=rope_scaling,
         )
-        self.scaling = self.head_dim**-0.5
+
         self.attn = RadixAttention(
             self.num_heads,
             self.head_dim,
             self.scaling,
             num_kv_heads=self.num_kv_heads,
             layer_id=layer_id,
-            quant_config=quant_config,
             prefix=add_prefix("attn", prefix),
         )
 
-        # Output projection (attn_out in checkpoint)
         self.o_proj = RowParallelLinear(
-            self.head_dim * self.total_num_heads,
+            self.total_num_heads * self.head_dim,
             self.hidden_size,
             bias=False,
             quant_config=quant_config,
+            tp_rank=attn_tp_rank,
+            tp_size=attn_tp_size,
             prefix=add_prefix("o_proj", prefix),
         )
 
@@ -585,53 +572,6 @@ class Molmo2Attention(nn.Module):
         return output
 
 
-class Molmo2MLP(nn.Module):
-    """MLP block for Molmo2 text backbone.
-
-    Note: Molmo2 uses `x * silu(gate)` ordering (gate first), which is the
-    opposite of the standard SiluAndMul. We need to swap the chunks.
-    """
-
-    def __init__(
-        self,
-        config: PretrainedConfig,
-        quant_config: Optional[QuantizationConfig] = None,
-        prefix: str = "",
-    ):
-        super().__init__()
-        self.config = config
-        self.hidden_size = config.hidden_size
-        self.intermediate_size = config.intermediate_size
-
-        # ff_proj in checkpoint (projects to 2 * intermediate for gating)
-        self.gate_up_proj = MergedColumnParallelLinear(
-            self.hidden_size,
-            [self.intermediate_size] * 2,
-            bias=False,
-            quant_config=quant_config,
-            prefix=add_prefix("gate_up_proj", prefix),
-        )
-
-        # ff_out in checkpoint
-        self.down_proj = RowParallelLinear(
-            self.intermediate_size,
-            self.hidden_size,
-            bias=False,
-            quant_config=quant_config,
-            prefix=add_prefix("down_proj", prefix),
-        )
-
-        self.act_fn = SiluAndMul()
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        gate_up, _ = self.gate_up_proj(x)
-        # Molmo2 uses: silu(gate) * x, so we need to swap chunks
-        # The checkpoint has [x, gate] ordering but SiluAndMul expects [gate, x]
-        gate, up = gate_up.chunk(2, dim=-1)
-        gate_up_swapped = torch.cat([up, gate], dim=-1)
-        x = self.act_fn(gate_up_swapped)
-        x, _ = self.down_proj(x)
-        return x
 
 
 class Molmo2DecoderLayer(nn.Module):
@@ -649,7 +589,13 @@ class Molmo2DecoderLayer(nn.Module):
         self.self_attn = Molmo2Attention(
             config, layer_id, quant_config, prefix=add_prefix("self_attn", prefix)
         )
-        self.mlp = Molmo2MLP(config, quant_config, prefix=add_prefix("mlp", prefix))
+        self.mlp = Qwen2MLP(
+            hidden_size=config.hidden_size,
+            intermediate_size=config.intermediate_size,
+            hidden_act="silu",
+            quant_config=quant_config,
+            prefix=add_prefix("mlp", prefix),
+        )
 
         # Post-attention and post-FFN norms (norm_after=True in config)
         self.attn_norm = RMSNorm(config.hidden_size, eps=config.layer_norm_eps)
@@ -676,7 +622,7 @@ class Molmo2DecoderLayer(nn.Module):
 
 
 class Molmo2TextModel(nn.Module):
-    """Text transformer model for Molmo2."""
+    """Text transformer model for Molmo2 with pipeline parallelism support."""
 
     def __init__(
         self,
@@ -686,20 +632,23 @@ class Molmo2TextModel(nn.Module):
     ):
         super().__init__()
         self.config = config
+        self.pp_group = get_pp_group()
 
-        # Combined embedding (embedding + new_embedding)
-        # org_num_embeddings is the base vocab size (for weight loading)
-        # num_embeddings is total vocab including additional tokens
-        self.additional_vocab_size = getattr(config, "additional_vocab_size", 0)
-        total_vocab_size = config.vocab_size + self.additional_vocab_size
-        self.wte = VocabParallelEmbedding(
-            total_vocab_size,
-            config.hidden_size,
-            org_num_embeddings=config.vocab_size,
-            prefix=add_prefix("wte", prefix),
-        )
+        # Embedding layer (only on first PP rank)
+        if self.pp_group.is_first_rank:
+            self.additional_vocab_size = getattr(config, "additional_vocab_size", 0)
+            total_vocab_size = config.vocab_size + self.additional_vocab_size
+            self.wte = VocabParallelEmbedding(
+                total_vocab_size,
+                config.hidden_size,
+                org_num_embeddings=config.vocab_size,
+                prefix=add_prefix("wte", prefix),
+            )
+        else:
+            self.wte = PPMissingLayer()
 
-        self.blocks = make_layers(
+        # Decoder layers with PP distribution
+        self.blocks, self.start_layer, self.end_layer = make_layers(
             config.num_hidden_layers,
             lambda idx, prefix: Molmo2DecoderLayer(
                 config=config,
@@ -707,9 +656,16 @@ class Molmo2TextModel(nn.Module):
                 quant_config=quant_config,
                 prefix=prefix,
             ),
+            pp_rank=self.pp_group.rank_in_group,
+            pp_size=self.pp_group.world_size,
             prefix=add_prefix("blocks", prefix),
         )
-        self.ln_f = RMSNorm(config.hidden_size, eps=config.layer_norm_eps)
+
+        # Final norm (only on last PP rank)
+        if self.pp_group.is_last_rank:
+            self.ln_f = RMSNorm(config.hidden_size, eps=config.layer_norm_eps)
+        else:
+            self.ln_f = PPMissingLayer()
 
     def get_input_embeddings(self):
         return self.wte
@@ -720,14 +676,22 @@ class Molmo2TextModel(nn.Module):
         positions: torch.Tensor,
         forward_batch: ForwardBatch,
         input_embeds: Optional[torch.Tensor] = None,
-    ) -> torch.Tensor:
-        if input_embeds is None:
-            hidden_states = self.wte(input_ids)
+        pp_proxy_tensors: Optional[PPProxyTensors] = None,
+    ):
+        if self.pp_group.is_first_rank:
+            if input_embeds is None:
+                hidden_states = self.wte(input_ids)
+            else:
+                hidden_states = input_embeds
         else:
-            hidden_states = input_embeds
+            assert pp_proxy_tensors is not None
+            hidden_states = pp_proxy_tensors["hidden_states"]
 
-        for layer_id, decoder_layer in enumerate(self.blocks):
-            hidden_states = decoder_layer(positions, hidden_states, forward_batch)
+        for i in range(self.start_layer, self.end_layer):
+            hidden_states = self.blocks[i](positions, hidden_states, forward_batch)
+
+        if not self.pp_group.is_last_rank:
+            return PPProxyTensors({"hidden_states": hidden_states})
 
         hidden_states = self.ln_f(hidden_states)
         return hidden_states
@@ -751,17 +715,14 @@ class Molmo2ForConditionalGeneration(nn.Module):
         self.config = config
         self.quant_config = quant_config
 
-        # Text config
         text_config = config.text_config if hasattr(config, "text_config") else config
 
-        # Text model (transformer)
         self.transformer = Molmo2TextModel(
             text_config,
             quant_config=quant_config,
             prefix=add_prefix("model.transformer", prefix),
         )
 
-        # Vision backbone
         if (
             hasattr(config, "vit_config")
             and config.vit_config is not None
@@ -776,7 +737,6 @@ class Molmo2ForConditionalGeneration(nn.Module):
         else:
             self.vision_backbone = None
 
-        # LM head
         self.unpadded_vocab_size = text_config.vocab_size
         self.lm_head = ParallelLMHead(
             self.unpadded_vocab_size,
@@ -787,7 +747,6 @@ class Molmo2ForConditionalGeneration(nn.Module):
         )
         self.logits_processor = LogitsProcessor(config)
 
-        # Store token IDs for multimodal processing
         self.image_patch_id = getattr(config, "image_patch_id", None)
         self.image_start_token_id = getattr(config, "image_start_token_id", None)
         self.image_end_token_id = getattr(config, "image_end_token_id", None)
@@ -802,20 +761,16 @@ class Molmo2ForConditionalGeneration(nn.Module):
         if not mm_inputs or not mm_inputs.mm_items:
             return input_ids
 
-        # Use the multimodal token padding pattern
-        # Only replace image_patch_id tokens with pad_value
         if self.image_patch_id is None:
             return input_ids
 
         input_ids_tensor = torch.as_tensor(input_ids)
 
-        # Get pad values for each item
         pad_values = [item.pad_value for item in mm_inputs.mm_items]
         if not pad_values:
             return input_ids
 
-        # Replace all image_patch_id tokens with the pad_value
-        # For simplicity, use the first pad_value (all items should have same pad_value in a request)
+        # All items in a request share the same pad_value
         pad_value = pad_values[0]
         input_ids_tensor[input_ids_tensor == self.image_patch_id] = pad_value
 
@@ -829,7 +784,6 @@ class Molmo2ForConditionalGeneration(nn.Module):
             pooling_idx = item.model_specific_data.get("image_token_pooling")
 
             if pixel_values.dim() == 3:
-                # Add batch dimension
                 pixel_values = pixel_values.unsqueeze(0)
             if pooling_idx.dim() == 2:
                 pooling_idx = pooling_idx.unsqueeze(0)
@@ -918,18 +872,16 @@ class Molmo2ForConditionalGeneration(nn.Module):
         loaded_params = set()
 
         for name, loaded_weight in weights:
-            # Skip rotary embeddings
             if "rotary_emb.inv_freq" in name:
                 continue
             if "rotary_emb.cos_cached" in name or "rotary_emb.sin_cached" in name:
                 continue
 
-            # Remap checkpoint names to our module names
-            # Text model: model.transformer.blocks.*.self_attn.att_proj -> transformer.blocks.*.self_attn.qkv_proj
             name = name.replace("model.transformer.", "transformer.")
-            
-            # Track if this is a fused weight (att_proj or ff_proj) - these should NOT go through stacked_params_mapping
+
+            # Fused weights (att_proj, ff_proj) should be loaded directly, not through stacked_params_mapping
             is_fused_weight = "att_proj" in name or "ff_proj" in name
+            is_mlp_fused = "ff_proj" in name
             
             name = name.replace("self_attn.att_proj", "self_attn.qkv_proj")
             name = name.replace("self_attn.attn_out", "self_attn.o_proj")
@@ -937,6 +889,13 @@ class Molmo2ForConditionalGeneration(nn.Module):
             name = name.replace("mlp.ff_out", "mlp.down_proj")
             name = name.replace("attn_norm", "attn_norm")
             name = name.replace("ff_norm", "ff_norm")
+
+            # Molmo2 checkpoint stores [up, gate] order but Qwen2MLP expects [gate, up]
+            if is_mlp_fused and "gate_up_proj" in name:
+                mid = loaded_weight.shape[0] // 2
+                loaded_weight = torch.cat(
+                    [loaded_weight[mid:], loaded_weight[:mid]], dim=0
+                )
 
             # Handle split embedding (wte.embedding + wte.new_embedding)
             if "wte.embedding" in name and "new_embedding" not in name:
@@ -953,19 +912,14 @@ class Molmo2ForConditionalGeneration(nn.Module):
                     loaded_params.add(name)
                 continue
             elif "wte.new_embedding" in name:
-                # This is the additional embedding, skip (handled above or separately)
-                # For VocabParallelEmbedding, we'd need to handle this differently
-                # For now, skip as the processor should not generate tokens beyond vocab_size
+                # Additional vocab embedding - skip as processor doesn't generate tokens beyond vocab_size
                 continue
 
-            # Vision backbone
             name = name.replace("model.vision_backbone.", "vision_backbone.")
             name = name.replace(
                 "image_vit.transformer.resblocks", "image_vit.resblocks"
             )
 
-            # Handle stacked params (QKV, gate/up) - but NOT for fused weights
-            # Fused weights (att_proj, ff_proj) should be loaded directly, not through sharding
             is_stacked = False
             if not is_fused_weight:
                 for param_name, weight_name, shard_id in stacked_params_mapping:
@@ -986,7 +940,6 @@ class Molmo2ForConditionalGeneration(nn.Module):
             if is_stacked:
                 continue
 
-            # Direct loading
             if name.endswith(".bias") and name not in params_dict:
                 continue
             if name not in params_dict:

@@ -48,7 +48,6 @@ class Molmo2MultimodalProcessor(BaseMultimodalProcessor):
 
         self.hf_config = hf_config
 
-        # Get token IDs from config
         self.image_patch_id = getattr(hf_config, "image_patch_id", None)
         self.image_start_token_id = getattr(hf_config, "image_start_token_id", None)
         self.image_end_token_id = getattr(hf_config, "image_end_token_id", None)
@@ -59,7 +58,6 @@ class Molmo2MultimodalProcessor(BaseMultimodalProcessor):
         self.frame_start_token_id = getattr(hf_config, "frame_start_token_id", None)
         self.frame_end_token_id = getattr(hf_config, "frame_end_token_id", None)
 
-        # Build multimodal tokens for loading
         self.mm_tokens = MultimodalSpecialTokens(
             image_token=IMAGE_PROMPT,
             video_token=VIDEO_PROMPT,
@@ -81,7 +79,6 @@ class Molmo2MultimodalProcessor(BaseMultimodalProcessor):
         if not mask.any():
             return []
 
-        # Find boundaries of contiguous regions
         start_positions = (mask & ~torch.roll(mask, 1)).nonzero(as_tuple=True)[0]
         end_positions = (mask & ~torch.roll(mask, -1)).nonzero(as_tuple=True)[0]
 
@@ -132,7 +129,6 @@ class Molmo2MultimodalProcessor(BaseMultimodalProcessor):
         """Process multimodal data for Molmo2."""
         video_data = getattr(request_obj, "video_data", None)
 
-        # Load multimodal data (images/videos) from various sources
         base_output = self.load_mm_data(
             prompt=input_text,
             image_data=image_data,
@@ -140,7 +136,6 @@ class Molmo2MultimodalProcessor(BaseMultimodalProcessor):
             multimodal_tokens=self.mm_tokens,
         )
 
-        # If no multimodal data, just tokenize and return
         if not base_output.images and not base_output.videos:
             input_ids = self._processor.tokenizer(
                 base_output.input_text,
@@ -152,7 +147,6 @@ class Molmo2MultimodalProcessor(BaseMultimodalProcessor):
                 "mm_items": [],
             }
 
-        # Process with HF processor
         processor_kwargs = {}
         if base_output.images:
             processor_kwargs["images"] = base_output.images
@@ -167,57 +161,45 @@ class Molmo2MultimodalProcessor(BaseMultimodalProcessor):
 
         input_ids = result["input_ids"].flatten()
 
-        # Create mm_items from the processor output
         mm_items = []
 
-        # Process images
         if "pixel_values" in result:
             pixel_values = result["pixel_values"]
             image_token_pooling = result.get("image_token_pooling")
             image_grids = result.get("image_grids")
             image_num_crops = result.get("image_num_crops")
 
-            # Get all image patch token offsets
             all_offsets = self._get_image_patch_offsets(input_ids, self.image_patch_id)
 
-            # Calculate expected patch counts per image from grids
-            # Each image has: resized_h * resized_w (global) + height * width (local crops)
+            # Each image contributes: resized_h * resized_w (global) + height * width (local crops)
             if image_grids is not None:
                 expected_counts = []
                 for grid in image_grids:
                     resized_h, resized_w, height, width = grid.tolist()
-                    # Global view patches + local crops patches
                     global_patches = resized_h * resized_w
                     local_patches = height * width
                     expected_counts.append(global_patches + local_patches)
 
-                # Split offsets by image
                 offsets_per_image = self._split_offsets_by_item(
                     all_offsets, expected_counts
                 )
             else:
-                # Fallback: assign all offsets to single image
                 offsets_per_image = [all_offsets]
 
-            # Determine number of images
             num_images = len(image_grids) if image_grids is not None else 1
 
-            # Handle pooling tensor slicing
             pooling_offset = 0
             crops_offset = 0
 
             for i in range(num_images):
-                # Get the number of crops for this image
                 if image_num_crops is not None:
                     num_crops = image_num_crops[i].item()
                 else:
                     num_crops = pixel_values.shape[0] // num_images
 
-                # Slice pixel values for this image
                 image_pixels = pixel_values[crops_offset : crops_offset + num_crops]
                 crops_offset += num_crops
 
-                # Slice pooling indices for this image
                 if image_token_pooling is not None and image_grids is not None:
                     grid = image_grids[i]
                     resized_h, resized_w, height, width = grid.tolist()
@@ -229,14 +211,12 @@ class Molmo2MultimodalProcessor(BaseMultimodalProcessor):
                 else:
                     pooling = image_token_pooling
 
-                # Create the MultimodalDataItem
                 item = MultimodalDataItem(modality=Modality.IMAGE)
                 item.feature = image_pixels
                 item.offsets = (
                     offsets_per_image[i] if i < len(offsets_per_image) else []
                 )
 
-                # Store model-specific data needed for get_image_feature
                 item.model_specific_data = {
                     "image_token_pooling": pooling,
                 }
@@ -245,16 +225,13 @@ class Molmo2MultimodalProcessor(BaseMultimodalProcessor):
 
                 mm_items.append(item)
 
-        # Process videos
         if "pixel_values_videos" in result:
             pixel_values_videos = result["pixel_values_videos"]
             video_token_pooling = result.get("video_token_pooling")
             video_grids = result.get("video_grids")
 
-            # Get all video patch token offsets
             all_offsets = self._get_image_patch_offsets(input_ids, self.image_patch_id)
 
-            # Calculate expected patch counts per video from grids
             if video_grids is not None:
                 expected_counts = []
                 for grid in video_grids:
@@ -273,19 +250,16 @@ class Molmo2MultimodalProcessor(BaseMultimodalProcessor):
             frame_offset = 0
 
             for i in range(num_videos):
-                # Get frame count for this video
                 if video_grids is not None:
                     num_frames = video_grids[i][0].item()
                 else:
                     num_frames = pixel_values_videos.shape[0] // num_videos
 
-                # Slice pixel values for this video
                 video_pixels = pixel_values_videos[
                     frame_offset : frame_offset + num_frames
                 ]
                 frame_offset += num_frames
 
-                # Slice pooling indices for this video
                 if video_token_pooling is not None and video_grids is not None:
                     grid = video_grids[i]
                     num_frames_grid, h, w = grid.tolist()
@@ -297,14 +271,12 @@ class Molmo2MultimodalProcessor(BaseMultimodalProcessor):
                 else:
                     pooling = video_token_pooling
 
-                # Create the MultimodalDataItem
                 item = MultimodalDataItem(modality=Modality.VIDEO)
                 item.feature = video_pixels
                 item.offsets = (
                     offsets_per_video[i] if i < len(offsets_per_video) else []
                 )
 
-                # Store model-specific data
                 item.model_specific_data = {
                     "video_token_pooling": pooling,
                 }
