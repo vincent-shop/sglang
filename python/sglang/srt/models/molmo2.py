@@ -405,6 +405,7 @@ class Molmo2VisionBackbone(nn.Module):
         """
         batch_size, num_image = images.shape[:2]
         images = images.to(device=self.device, dtype=self.dtype)
+        pooled_patches_idx = pooled_patches_idx.to(device=self.device)
         image_features = self.encode_image(images)
 
         dim = image_features.shape[-1]
@@ -434,7 +435,7 @@ class Molmo2VisionBackbone(nn.Module):
             attn_mask = valid.reshape(-1, 1, 1, valid.shape[-1])
             # attn_mask needs to be float with -inf for masked positions
             attn_mask = attn_mask.to(self.dtype)
-            attn_mask = torch.where(attn_mask == 0, float("-inf"), 0.0)
+            attn_mask = torch.where(attn_mask == 0, float("-inf"), 0.0).to(self.dtype)
             denom = valid.view(-1, to_pool.shape[-2]).float().sum(-1)
             denom = torch.where(denom == 0, 1, denom)
             query = to_pool.sum(-2, keepdim=True) / denom[:, None, None].to(
@@ -926,6 +927,10 @@ class Molmo2ForConditionalGeneration(nn.Module):
             # Remap checkpoint names to our module names
             # Text model: model.transformer.blocks.*.self_attn.att_proj -> transformer.blocks.*.self_attn.qkv_proj
             name = name.replace("model.transformer.", "transformer.")
+            
+            # Track if this is a fused weight (att_proj or ff_proj) - these should NOT go through stacked_params_mapping
+            is_fused_weight = "att_proj" in name or "ff_proj" in name
+            
             name = name.replace("self_attn.att_proj", "self_attn.qkv_proj")
             name = name.replace("self_attn.attn_out", "self_attn.o_proj")
             name = name.replace("mlp.ff_proj", "mlp.gate_up_proj")
@@ -959,22 +964,24 @@ class Molmo2ForConditionalGeneration(nn.Module):
                 "image_vit.transformer.resblocks", "image_vit.resblocks"
             )
 
-            # Handle stacked params (QKV, gate/up)
+            # Handle stacked params (QKV, gate/up) - but NOT for fused weights
+            # Fused weights (att_proj, ff_proj) should be loaded directly, not through sharding
             is_stacked = False
-            for param_name, weight_name, shard_id in stacked_params_mapping:
-                if weight_name not in name:
-                    continue
-                name = name.replace(weight_name, param_name)
-                if name.endswith(".bias") and name not in params_dict:
-                    continue
-                if name not in params_dict:
-                    continue
-                param = params_dict[name]
-                weight_loader = param.weight_loader
-                weight_loader(param, loaded_weight, shard_id)
-                loaded_params.add(name)
-                is_stacked = True
-                break
+            if not is_fused_weight:
+                for param_name, weight_name, shard_id in stacked_params_mapping:
+                    if weight_name not in name:
+                        continue
+                    name = name.replace(weight_name, param_name)
+                    if name.endswith(".bias") and name not in params_dict:
+                        continue
+                    if name not in params_dict:
+                        continue
+                    param = params_dict[name]
+                    weight_loader = param.weight_loader
+                    weight_loader(param, loaded_weight, shard_id)
+                    loaded_params.add(name)
+                    is_stacked = True
+                    break
 
             if is_stacked:
                 continue
